@@ -121,7 +121,7 @@ app = FastAPI(
        ```
        GET /demonstracoes/maiores-despesas-eventos
        ```
-       - Retorna as 10 operadoras com maiores despesas em eventos/sinistros médico-hospitalares no último trimestre
+       - Retorna as 10 operadoras com maiores despesas em eventos/sinistros médico-hospitalares no último trimestre (4º trimestre do ano anterior)
        - Ordenado por valor de despesa (decrescente)
        - Retorna:
          * Nome da operadora
@@ -599,43 +599,18 @@ async def buscar_operadoras_por_uf(uf: str):
 @app.get("/demonstracoes/maiores-despesas-eventos", tags=["Análises Financeiras"])
 async def get_maiores_despesas_eventos():
     """
-    Retorna as 10 operadoras com maiores despesas em eventos/sinistros médico-hospitalares no último trimestre.
+    Retorna as 10 operadoras com maiores despesas em eventos/sinistros médico-hospitalares no último trimestre (4º trimestre do ano anterior).
     """
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
-        # Criar função de normalização no PostgreSQL se não existir
-        cur.execute("""
-            CREATE OR REPLACE FUNCTION normalize_text(text)
-            RETURNS text AS
-            $$
-            BEGIN
-                RETURN translate(
-                    lower($1),
-                    'áàâãäéèêëíìîïóòôõöúùûüýÿçñ',
-                    'aaaaaeeeeiiiioooouuuuyycn'
-                );
-            END;
-            $$ LANGUAGE plpgsql IMMUTABLE;
-        """)
-        
-        # Query para encontrar as 10 operadoras com maiores despesas
         query = """
-        WITH ultima_data AS (
-            SELECT MAX(data_demonstracao) as data_max
+        WITH ultimo_ano AS (
+            SELECT 
+                EXTRACT(YEAR FROM MAX(data_demonstracao)) as ano_max
             FROM demonstracoes_contabeis
             WHERE data_demonstracao <= CURRENT_DATE
-        ),
-        ultimo_trimestre AS (
-            SELECT DISTINCT ON (registro_ans) 
-                registro_ans,
-                data_demonstracao,
-                EXTRACT(YEAR FROM data_demonstracao) AS ano,
-                EXTRACT(QUARTER FROM data_demonstracao) AS trimestre
-            FROM demonstracoes_contabeis d
-            JOIN ultima_data ud ON d.data_demonstracao = ud.data_max
-            ORDER BY registro_ans, data_demonstracao DESC
         ),
         despesas_eventos AS (
             SELECT 
@@ -643,14 +618,14 @@ async def get_maiores_despesas_eventos():
                 o.razao_social,
                 o.registro_ans,
                 SUM(ABS(d.saldo_final)) as valor_despesa,
-                ut.ano,
-                ut.trimestre
+                ul.ano_max as ano,
+                4 as trimestre
             FROM demonstracoes_contabeis d
-            JOIN ultimo_trimestre ut ON d.registro_ans = ut.registro_ans 
-                AND d.data_demonstracao = ut.data_demonstracao
+            JOIN ultimo_ano ul ON EXTRACT(YEAR FROM d.data_demonstracao) = ul.ano_max
             JOIN operadoras o ON d.registro_ans = o.registro_ans
             WHERE d.descricao ILIKE '%EVENTOS%SINISTROS%CONHECIDOS%AVISADOS%MEDICO%HOSPITALAR%'
-            GROUP BY o.nome_fantasia, o.razao_social, o.registro_ans, ut.ano, ut.trimestre
+            AND EXTRACT(QUARTER FROM d.data_demonstracao) = 4
+            GROUP BY o.nome_fantasia, o.razao_social, o.registro_ans, ul.ano_max
         )
         SELECT 
             CASE 
@@ -685,11 +660,12 @@ async def get_maiores_despesas_eventos_ano():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
-        # Query para encontrar as 10 operadoras com maiores despesas no ano anterior
         query = """
-        WITH ano_anterior AS (
+        WITH ultimo_ano AS (
             SELECT 
-                EXTRACT(YEAR FROM CURRENT_DATE) - 1 as ano_ref
+                EXTRACT(YEAR FROM MAX(data_demonstracao)) as ano_max
+            FROM demonstracoes_contabeis
+            WHERE data_demonstracao <= CURRENT_DATE
         ),
         despesas_eventos AS (
             SELECT 
@@ -698,26 +674,12 @@ async def get_maiores_despesas_eventos_ano():
                 o.registro_ans,
                 SUM(ABS(d.saldo_final)) as valor_despesa,
                 COUNT(*) as quantidade_eventos,
-                EXTRACT(YEAR FROM d.data_demonstracao) as ano,
-                EXTRACT(QUARTER FROM d.data_demonstracao) as trimestre
+                ul.ano_max as ano
             FROM demonstracoes_contabeis d
-            JOIN ano_anterior aa ON EXTRACT(YEAR FROM d.data_demonstracao) = aa.ano_ref
+            JOIN ultimo_ano ul ON EXTRACT(YEAR FROM d.data_demonstracao) = ul.ano_max
             JOIN operadoras o ON d.registro_ans = o.registro_ans
             WHERE d.descricao ILIKE '%EVENTOS%SINISTROS%CONHECIDOS%AVISADOS%MEDICO%HOSPITALAR%'
-            GROUP BY o.nome_fantasia, o.razao_social, o.registro_ans, 
-                     EXTRACT(YEAR FROM d.data_demonstracao),
-                     EXTRACT(QUARTER FROM d.data_demonstracao)
-        ),
-        despesas_anuais AS (
-            SELECT 
-                nome_fantasia,
-                razao_social,
-                registro_ans,
-                SUM(valor_despesa) as valor_despesa,
-                SUM(quantidade_eventos) as quantidade_eventos,
-                ano
-            FROM despesas_eventos
-            GROUP BY nome_fantasia, razao_social, registro_ans, ano
+            GROUP BY o.nome_fantasia, o.razao_social, o.registro_ans, ul.ano_max
         )
         SELECT 
             CASE 
@@ -731,7 +693,7 @@ async def get_maiores_despesas_eventos_ano():
             ROUND(valor_despesa / NULLIF(quantidade_eventos, 0), 2) as media_por_evento,
             ano as ano_referencia,
             ROW_NUMBER() OVER (ORDER BY valor_despesa DESC) as ranking
-        FROM despesas_anuais
+        FROM despesas_eventos
         ORDER BY valor_despesa DESC
         LIMIT 10;
         """
