@@ -46,4 +46,12 @@ class TendenciaMensal(BaseModel):
     mes: date = Field(..., description="Mês de referência")
     total_eventos: int = Field(..., description="Total de eventos no mês")
     total_despesas: float = Field(..., description="Valor total das despesas no mês")
-    media_por_evento: float = Field(..., description="Valor médio por evento no mês") 
+    media_por_evento: float = Field(..., description="Valor médio por evento no mês")
+
+class BuscaDescricao(BaseModel):
+    registro_ans: str
+    descricao: str
+    valor: float
+    data_referencia: date
+    nome_fantasia: str
+    razao_social: str 
