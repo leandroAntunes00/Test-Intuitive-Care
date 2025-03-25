@@ -29,7 +29,7 @@
                   color="primary"
                   block
                   :loading="loading"
-                  :disabled="!termoBusca.trim()"
+                  :disabled="campoVazio"
                   @click="buscar"
                 >
                   Buscar
@@ -83,8 +83,47 @@
                   <v-col cols="12" class="mb-2">
                     <strong>Modalidade:</strong> {{ operadora.modalidade }}
                   </v-col>
+                  
+                  <!-- Endereço -->
                   <v-col cols="12" class="mb-2">
-                    <strong>Localização:</strong> {{ operadora.cidade }} - {{ operadora.uf }}
+                    <strong>Endereço:</strong><br>
+                    <div v-if="operadora.logradouro || operadora.numero || operadora.complemento || operadora.bairro">
+                      <template v-if="operadora.logradouro">{{ operadora.logradouro }}</template><!--
+                      --><template v-if="operadora.numero">, {{ operadora.numero }}</template><!--
+                      --><template v-if="operadora.complemento">, {{ operadora.complemento }}</template>
+                      <template v-if="operadora.bairro"><br>Bairro: {{ operadora.bairro }}</template>
+                      <br>{{ operadora.cidade }} - {{ operadora.uf }}
+                      <template v-if="operadora.cep"><br>CEP: {{ formatarCEP(operadora.cep) }}</template>
+                    </div>
+                    <div v-if="!operadora.logradouro && !operadora.numero && !operadora.complemento && !operadora.bairro">
+                      {{ operadora.cidade }} - {{ operadora.uf }}
+                      <template v-if="operadora.cep"><br>CEP: {{ formatarCEP(operadora.cep) }}</template>
+                    </div>
+                  </v-col>
+
+                  <!-- Informações de Contato -->
+                  <v-col v-if="operadora.telefone" cols="12" class="mb-2">
+                    <strong>Telefone:</strong> {{ operadora.telefone }}
+                  </v-col>
+                  <v-col v-if="operadora.email" cols="12" class="mb-2">
+                    <strong>Email:</strong> {{ operadora.email }}
+                  </v-col>
+                  <v-col v-if="operadora.representante" cols="12" class="mb-2">
+                    <strong>Representante:</strong> {{ operadora.representante }}
+                  </v-col>
+                  <v-col v-if="operadora.data_registro_ans" cols="12" class="mb-2">
+                    <strong>Data de Registro ANS:</strong> {{ formatarData(operadora.data_registro_ans) }}
+                  </v-col>
+
+                  <!-- Indicador de Operadora Ativa -->
+                  <v-col cols="12" class="mt-2">
+                    <v-chip
+                      :color="operadora.is_ativa ? 'success' : 'warning'"
+                      small
+                      class="mr-2"
+                    >
+                      {{ operadora.is_ativa ? 'Operadora Ativa' : 'Operadora Inativa' }}
+                    </v-chip>
                   </v-col>
                 </v-row>
               </v-card-text>
@@ -150,15 +189,13 @@ export default {
   name: 'BuscaOperadoras',
   data() {
     return {
-      tipoBusca: 'cidade',  // Mudei o padrão para cidade
+      tipoBusca: 'cidade',
       tiposBusca: [
         { title: 'Cidade', value: 'cidade' },
         { title: 'CNPJ', value: 'cnpj' },
         { title: 'Nome Fantasia', value: 'nome-fantasia' },
         { title: 'Razão Social', value: 'razao-social' },
-        { title: 'Modalidade', value: 'modalidade' },
-        { title: 'Operadoras Ativas por Cidade', value: 'ativas-cidade' },
-        { title: 'Operadoras Ativas por UF', value: 'ativas-uf' }
+        { title: 'Operadoras por UF', value: 'ativas-uf' }
       ],
       termoBusca: '',
       loading: false,
@@ -182,8 +219,6 @@ export default {
         'nome-fantasia': 'Digite o nome fantasia',
         'razao-social': 'Digite a razão social',
         'cidade': 'Digite a cidade',
-        'modalidade': 'Digite a modalidade',
-        'ativas-cidade': 'Digite a cidade',
         'ativas-uf': 'Digite a UF'
       };
       return labels[this.tipoBusca] || 'Digite o termo de busca';
@@ -194,11 +229,12 @@ export default {
         'nome-fantasia': 'Ex: SulAmerica',
         'razao-social': 'Ex: SulAmerica Seguradora',
         'cidade': 'Ex: Sao Paulo',
-        'modalidade': 'Ex: Cooperativa',
-        'ativas-cidade': 'Ex: Rio de Janeiro',
         'ativas-uf': 'Ex: SP'
       };
       return placeholders[this.tipoBusca] || 'Digite sua busca';
+    },
+    campoVazio() {
+      return !this.termoBusca || !this.termoBusca.trim();
     },
     totalPaginas() {
       return Math.ceil(this.resultados.length / this.itensPorPagina);
@@ -216,6 +252,12 @@ export default {
   watch: {
     itensPorPagina() {
       this.paginaAtual = 1;
+    },
+    termoBusca(novoValor) {
+      // Se o campo for limpo, reseta os resultados
+      if (!novoValor || novoValor.trim() === '') {
+        this.limparResultados();
+      }
     }
   },
   methods: {
@@ -232,8 +274,14 @@ export default {
       this.buscaRealizada = false;
       this.paginaAtual = 1;
     },
+    normalizeText(text) {
+      if (!text) return '';
+      return text.normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '') // remove acentos
+                .toLowerCase();
+    },
     async buscar() {
-      if (!this.termoBusca.trim()) {
+      if (!this.termoBusca || !this.termoBusca.trim()) {
         this.erro = 'Por favor, digite um termo para busca';
         return;
       }
@@ -246,7 +294,8 @@ export default {
 
       try {
         let url;
-        const termo = encodeURIComponent(this.termoBusca.trim());
+        const termoNormalizado = this.normalizeText(this.termoBusca.trim());
+        const termo = encodeURIComponent(termoNormalizado);
         
         switch (this.tipoBusca) {
           case 'cnpj':
@@ -261,14 +310,8 @@ export default {
           case 'cidade':
             url = `/operadoras/cidade/${termo}`;
             break;
-          case 'modalidade':
-            url = `/operadoras/modalidade/${termo}`;
-            break;
-          case 'ativas-cidade':
-            url = `/operadoras-ativas/cidade/${termo}`;
-            break;
           case 'ativas-uf':
-            url = `/operadoras-ativas/uf/${termo}`;
+            url = `/operadoras/uf/${termo.toUpperCase()}`;
             break;
         }
 
@@ -300,6 +343,15 @@ export default {
     formatarCNPJ(cnpj) {
       if (!cnpj) return '';
       return cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+    },
+    formatarData(data) {
+      if (!data) return '';
+      const date = new Date(data);
+      return date.toLocaleDateString('pt-BR');
+    },
+    formatarCEP(cep) {
+      if (!cep) return '';
+      return cep.replace(/^(\d{5})(\d{3})$/, "$1-$2");
     }
   }
 };
