@@ -142,10 +142,30 @@ async def buscar_operadora_cnpj(cnpj: str):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         cur.execute("""
-            SELECT registro_ans, cnpj, razao_social, nome_fantasia, modalidade, 
-                   logradouro, numero, complemento, bairro, cidade, uf, cep
-            FROM operadoras 
-            WHERE cnpj = %s
+            SELECT 
+                o.registro_ans, 
+                o.cnpj, 
+                o.razao_social, 
+                o.nome_fantasia, 
+                o.modalidade,
+                o.logradouro,
+                o.numero,
+                o.complemento,
+                o.bairro,
+                o.cidade,
+                o.uf,
+                o.cep,
+                oa.telefone,
+                oa.email,
+                oa.representante,
+                oa.data_registro_ans,
+                CASE 
+                    WHEN oa.registro_ans IS NOT NULL THEN true
+                    ELSE false
+                END as is_ativa
+            FROM operadoras o
+            LEFT JOIN operadoras_ativas oa ON o.registro_ans = oa.registro_ans
+            WHERE o.cnpj = %s
         """, (cnpj,))
         resultado = cur.fetchone()
         cur.close()
@@ -174,16 +194,30 @@ async def buscar_por_cidade(cidade: str):
         
         query = """
             SELECT 
-                registro_ans,
-                nome_fantasia,
-                razao_social,
-                cnpj,
-                modalidade,
-                cidade,
-                uf
-            FROM operadoras
-            WHERE normalize_text(cidade) ILIKE normalize_text(%s)
-            ORDER BY nome_fantasia
+                o.registro_ans,
+                o.nome_fantasia,
+                o.razao_social,
+                o.cnpj,
+                o.modalidade,
+                o.logradouro,
+                o.numero,
+                o.complemento,
+                o.bairro,
+                o.cidade,
+                o.uf,
+                o.cep,
+                oa.telefone,
+                oa.email,
+                oa.representante,
+                oa.data_registro_ans,
+                CASE 
+                    WHEN oa.registro_ans IS NOT NULL THEN true
+                    ELSE false
+                END as is_ativa
+            FROM operadoras o
+            LEFT JOIN operadoras_ativas oa ON o.registro_ans = oa.registro_ans
+            WHERE normalize_text(o.cidade) LIKE %s
+            ORDER BY o.nome_fantasia
             LIMIT 100
         """
         
@@ -208,17 +242,12 @@ async def buscar_por_cidade(cidade: str):
         cur.execute(query, (search_term,))
         resultados = cur.fetchall()
         
-        logger.info(f"Encontrados {len(resultados)} resultados")
-        if resultados and len(resultados) > 0:
-            logger.info(f"Primeiro resultado: {resultados[0]}")
-        
         cur.close()
         conn.close()
         
         return resultados
     except Exception as e:
         logger.error(f"Erro ao buscar por cidade: {str(e)}")
-        logger.error(f"Traceback completo: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/operadoras-ativas/cidade/{cidade}")
@@ -318,16 +347,30 @@ async def buscar_por_nome_fantasia(nome: str):
         
         query = """
             SELECT 
-                registro_ans,
-                nome_fantasia,
-                razao_social,
-                cnpj,
-                modalidade,
-                cidade,
-                uf
-            FROM operadoras
-            WHERE nome_fantasia ILIKE %s
-            ORDER BY nome_fantasia
+                o.registro_ans,
+                o.nome_fantasia,
+                o.razao_social,
+                o.cnpj,
+                o.modalidade,
+                o.logradouro,
+                o.numero,
+                o.complemento,
+                o.bairro,
+                o.cidade,
+                o.uf,
+                o.cep,
+                oa.telefone,
+                oa.email,
+                oa.representante,
+                oa.data_registro_ans,
+                CASE 
+                    WHEN oa.registro_ans IS NOT NULL THEN true
+                    ELSE false
+                END as is_ativa
+            FROM operadoras o
+            LEFT JOIN operadoras_ativas oa ON o.registro_ans = oa.registro_ans
+            WHERE normalize_text(o.nome_fantasia) LIKE %s
+            ORDER BY o.nome_fantasia
             LIMIT 100
         """
         
@@ -353,16 +396,26 @@ async def buscar_por_razao_social(nome: str):
         
         query = """
             SELECT 
-                registro_ans,
-                nome_fantasia,
-                razao_social,
-                cnpj,
-                modalidade,
-                cidade,
-                uf
-            FROM operadoras
-            WHERE razao_social ILIKE %s
-            ORDER BY razao_social
+                o.registro_ans,
+                o.nome_fantasia,
+                o.razao_social,
+                o.cnpj,
+                o.modalidade,
+                o.cidade,
+                o.uf,
+                o.cep,
+                oa.telefone,
+                oa.email,
+                oa.representante,
+                oa.data_registro_ans,
+                CASE 
+                    WHEN oa.registro_ans IS NOT NULL THEN true
+                    ELSE false
+                END as is_ativa
+            FROM operadoras o
+            LEFT JOIN operadoras_ativas oa ON o.registro_ans = oa.registro_ans
+            WHERE o.razao_social ILIKE %s
+            ORDER BY o.razao_social
             LIMIT 100
         """
         
@@ -388,16 +441,30 @@ async def buscar_operadoras_por_uf(uf: str):
         
         query = """
             SELECT 
-                registro_ans,
-                nome_fantasia,
-                razao_social,
-                cnpj,
-                modalidade,
-                cidade,
-                uf
-            FROM operadoras
-            WHERE uf ILIKE %s
-            ORDER BY nome_fantasia
+                o.registro_ans,
+                o.nome_fantasia,
+                o.razao_social,
+                o.cnpj,
+                o.modalidade,
+                o.logradouro,
+                o.numero,
+                o.complemento,
+                o.bairro,
+                o.cidade,
+                o.uf,
+                o.cep,
+                oa.telefone,
+                oa.email,
+                oa.representante,
+                oa.data_registro_ans,
+                CASE 
+                    WHEN oa.registro_ans IS NOT NULL THEN true
+                    ELSE false
+                END as is_ativa
+            FROM operadoras o
+            LEFT JOIN operadoras_ativas oa ON o.registro_ans = oa.registro_ans
+            WHERE o.uf ILIKE %s
+            ORDER BY o.nome_fantasia
             LIMIT 100
         """
         
