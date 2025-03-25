@@ -23,10 +23,10 @@
                   :loading="loading"
                   class="elevation-1"
                 >
-                  <template v-slot:item.total_despesas="{ item }">
+                  <template #[`item.total_despesas`]="{ item }">
                     R$ {{ formatarValor(item.total_despesas) }}
                   </template>
-                  <template v-slot:item.percentual_total="{ item }">
+                  <template #[`item.percentual_total`]="{ item }">
                     {{ item.percentual_total }}%
                   </template>
                 </v-data-table>
@@ -46,13 +46,13 @@
                   :loading="loading"
                   class="elevation-1"
                 >
-                  <template v-slot:item.total_despesas="{ item }">
+                  <template #[`item.total_despesas`]="{ item }">
                     R$ {{ formatarValor(item.total_despesas) }}
                   </template>
-                  <template v-slot:item.media_por_evento="{ item }">
+                  <template #[`item.media_por_evento`]="{ item }">
                     R$ {{ formatarValor(item.media_por_evento) }}
                   </template>
-                  <template v-slot:item.percentual_total="{ item }">
+                  <template #[`item.percentual_total`]="{ item }">
                     {{ item.percentual_total }}%
                   </template>
                 </v-data-table>

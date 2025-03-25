@@ -1,11 +1,11 @@
 <template>
   <div class="chart-container">
-    <Line :data="chartData" :options="options" />
+    <LineChartComponent :data="chartData" :options="options" />
   </div>
 </template>
 
 <script>
-import { Line } from 'vue-chartjs';
+import { Line as LineChartComponent } from 'vue-chartjs';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -29,7 +29,7 @@ ChartJS.register(
 
 export default {
   name: 'LineChart',
-  components: { Line },
+  components: { LineChartComponent },
   props: {
     chartData: {
       type: Object,

@@ -33,13 +33,13 @@
         :loading="loading"
         class="elevation-1 mt-4"
       >
-        <template v-slot:item.total_despesas="{ item }">
+        <template #[`item.total_despesas`]="{ item }">
           R$ {{ formatarValor(item.total_despesas) }}
         </template>
-        <template v-slot:item.percentual_total="{ item }">
+        <template #[`item.percentual_total`]="{ item }">
           {{ item.percentual_total }}%
         </template>
-        <template v-slot:item.relevancia="{ item }">
+        <template #[`item.relevancia`]="{ item }">
           {{ (item.relevancia * 100).toFixed(2) }}%
         </template>
       </v-data-table>
