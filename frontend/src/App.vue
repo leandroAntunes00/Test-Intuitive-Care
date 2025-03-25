@@ -16,6 +16,11 @@
             <MaioresSinistros />
           </v-col>
         </v-row>
+        <v-row class="mt-4">
+          <v-col cols="12">
+            <MaioresSinistrosAno />
+          </v-col>
+        </v-row>
       </v-container>
     </v-main>
   </v-app>
@@ -24,12 +29,14 @@
 <script>
 import BuscaOperadoras from './components/BuscaOperadoras.vue';
 import MaioresSinistros from './components/MaioresSinistros.vue';
+import MaioresSinistrosAno from './components/MaioresSinistrosAno.vue';
 
 export default {
   name: 'App',
   components: {
     BuscaOperadoras,
-    MaioresSinistros
+    MaioresSinistros,
+    MaioresSinistrosAno
   }
 };
 </script>

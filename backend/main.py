@@ -676,6 +676,75 @@ async def get_maiores_despesas_eventos():
         logger.error(f"Erro ao buscar maiores despesas: {str(e)}")
         raise HTTPException(status_code=500, detail="Erro ao buscar dados de despesas")
 
+@app.get("/demonstracoes/maiores-despesas-eventos-ano", tags=["Análises Financeiras"])
+async def get_maiores_despesas_eventos_ano():
+    """
+    Retorna as 10 operadoras com maiores despesas em eventos/sinistros médico-hospitalares no ano anterior.
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # Query para encontrar as 10 operadoras com maiores despesas no ano anterior
+        query = """
+        WITH ano_anterior AS (
+            SELECT 
+                EXTRACT(YEAR FROM CURRENT_DATE) - 1 as ano_ref
+        ),
+        despesas_eventos AS (
+            SELECT 
+                o.nome_fantasia,
+                o.razao_social,
+                o.registro_ans,
+                SUM(ABS(d.saldo_final)) as valor_despesa,
+                COUNT(*) as quantidade_eventos,
+                EXTRACT(YEAR FROM d.data_demonstracao) as ano,
+                EXTRACT(QUARTER FROM d.data_demonstracao) as trimestre
+            FROM demonstracoes_contabeis d
+            JOIN ano_anterior aa ON EXTRACT(YEAR FROM d.data_demonstracao) = aa.ano_ref
+            JOIN operadoras o ON d.registro_ans = o.registro_ans
+            WHERE d.descricao ILIKE '%EVENTOS%SINISTROS%CONHECIDOS%AVISADOS%MEDICO%HOSPITALAR%'
+            GROUP BY o.nome_fantasia, o.razao_social, o.registro_ans, 
+                     EXTRACT(YEAR FROM d.data_demonstracao),
+                     EXTRACT(QUARTER FROM d.data_demonstracao)
+        ),
+        despesas_anuais AS (
+            SELECT 
+                nome_fantasia,
+                razao_social,
+                registro_ans,
+                SUM(valor_despesa) as valor_despesa,
+                SUM(quantidade_eventos) as quantidade_eventos,
+                ano
+            FROM despesas_eventos
+            GROUP BY nome_fantasia, razao_social, registro_ans, ano
+        )
+        SELECT 
+            CASE 
+                WHEN nome_fantasia = 'nan' OR nome_fantasia IS NULL OR nome_fantasia = '' 
+                THEN COALESCE(NULLIF(razao_social, ''), 'Operadora ' || registro_ans)
+                ELSE nome_fantasia
+            END as nome_operadora,
+            registro_ans,
+            valor_despesa,
+            quantidade_eventos,
+            ROUND(valor_despesa / NULLIF(quantidade_eventos, 0), 2) as media_por_evento,
+            ano as ano_referencia,
+            ROW_NUMBER() OVER (ORDER BY valor_despesa DESC) as ranking
+        FROM despesas_anuais
+        ORDER BY valor_despesa DESC
+        LIMIT 10;
+        """
+        
+        cur.execute(query)
+        results = cur.fetchall()
+        conn.close()
+        
+        return results
+    except Exception as e:
+        logger.error(f"Erro ao buscar maiores despesas do ano: {str(e)}")
+        raise HTTPException(status_code=500, detail="Erro ao buscar dados de despesas")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000) 
