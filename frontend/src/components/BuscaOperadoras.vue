@@ -23,77 +23,99 @@
             ></v-text-field>
           </v-col>
           <v-col cols="12" md="4">
-            <v-btn
-              color="primary"
-              block
-              :loading="loading"
-              :disabled="!termoBusca.trim()"
-              @click="buscar"
-            >
-              Buscar
-            </v-btn>
+            <v-row no-gutters>
+              <v-col cols="6" class="pr-1">
+                <v-btn
+                  color="primary"
+                  block
+                  :loading="loading"
+                  :disabled="!termoBusca.trim()"
+                  @click="buscar"
+                >
+                  Buscar
+                </v-btn>
+              </v-col>
+              <v-col cols="6" class="pl-1">
+                <v-btn
+                  color="error"
+                  block
+                  :disabled="resultados.length === 0"
+                  @click="limparResultados"
+                >
+                  Limpar
+                </v-btn>
+              </v-col>
+            </v-row>
           </v-col>
         </v-row>
       </v-form>
 
-      <!-- Resultados em Cards -->
-      <v-row v-if="resultados.length > 0" class="mt-4">
-        <v-col 
-          v-for="(operadora, index) in resultados" 
-          :key="index"
-          cols="12"
-          sm="6"
-          md="4"
-        >
-          <v-card
-            class="mx-auto"
-            outlined
+      <!-- Resultados em Cards com Paginação -->
+      <div v-if="resultados.length > 0">
+        <v-row>
+          <v-col 
+            v-for="(operadora, index) in resultadosPaginados" 
+            :key="index"
+            cols="12"
+            sm="6"
+            md="4"
           >
-            <v-card-title class="text-h6">
-              {{ operadora.nome_fantasia || 'Nome não informado' }}
-            </v-card-title>
-            
-            <v-card-text>
-              <v-row no-gutters>
-                <v-col cols="12">
-                  <strong>Registro ANS:</strong> {{ operadora.registro_ans }}
-                </v-col>
-                <v-col cols="12">
-                  <strong>CNPJ:</strong> {{ formatarCNPJ(operadora.cnpj) }}
-                </v-col>
-                <v-col cols="12">
-                  <strong>Razão Social:</strong> {{ operadora.razao_social }}
-                </v-col>
-                <v-col cols="12">
-                  <strong>Modalidade:</strong> {{ operadora.modalidade }}
-                </v-col>
-                <v-col cols="12">
-                  <strong>Localização:</strong> {{ operadora.cidade }} - {{ operadora.uf }}
-                </v-col>
-              </v-row>
-            </v-card-text>
-          </v-card>
-        </v-col>
-      </v-row>
+            <v-card
+              class="mx-auto"
+              outlined
+              hover
+            >
+              <v-card-title class="text-h6 primary--text">
+                {{ operadora.nome_fantasia === 'nan' ? operadora.razao_social : (operadora.nome_fantasia || 'Nome não informado') }}
+              </v-card-title>
+              
+              <v-card-text>
+                <v-row no-gutters>
+                  <v-col cols="12" class="mb-2">
+                    <strong>Registro ANS:</strong> {{ operadora.registro_ans }}
+                  </v-col>
+                  <v-col cols="12" class="mb-2">
+                    <strong>CNPJ:</strong> {{ formatarCNPJ(operadora.cnpj) }}
+                  </v-col>
+                  <v-col cols="12" class="mb-2" v-if="operadora.nome_fantasia !== 'nan'">
+                    <strong>Razão Social:</strong> {{ operadora.razao_social }}
+                  </v-col>
+                  <v-col cols="12" class="mb-2">
+                    <strong>Modalidade:</strong> {{ operadora.modalidade }}
+                  </v-col>
+                  <v-col cols="12" class="mb-2">
+                    <strong>Localização:</strong> {{ operadora.cidade }} - {{ operadora.uf }}
+                  </v-col>
+                </v-row>
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
 
-      <!-- Tabela de Resultados -->
-      <v-data-table
-        v-if="resultados.length > 0"
-        :headers="headers"
-        :items="resultados"
-        :loading="loading"
-        class="elevation-1 mt-4"
-        dense
-        :items-per-page="10"
-        :footer-props="{
-          'items-per-page-options': [10, 20, 50, 100],
-          'items-per-page-text': 'Itens por página'
-        }"
-      >
-        <template #[`item.cnpj`]="{ item }">
-          {{ formatarCNPJ(item.cnpj) }}
-        </template>
-      </v-data-table>
+        <!-- Paginação -->
+        <v-row class="mt-4">
+          <v-col cols="12" class="text-center">
+            <v-pagination
+              v-model="paginaAtual"
+              :length="totalPaginas"
+              :total-visible="7"
+            ></v-pagination>
+          </v-col>
+          <v-col cols="12" sm="4" class="text-center">
+            <v-select
+              v-model="itensPorPagina"
+              :items="opcoesItensPorPagina"
+              label="Itens por página"
+              dense
+            ></v-select>
+          </v-col>
+          <v-col cols="12" sm="8" class="text-center">
+            <div class="text-subtitle-1">
+              Mostrando {{ inicio + 1 }}-{{ Math.min(fim, resultados.length) }} de {{ resultados.length }} operadora(s)
+            </div>
+          </v-col>
+        </v-row>
+      </div>
 
       <!-- Mensagens de Erro/Info -->
       <v-alert
@@ -111,19 +133,6 @@
       >
         Nenhuma operadora encontrada com o termo "{{ termoBusca }}"
       </v-alert>
-
-      <!-- Resumo dos Resultados -->
-      <v-card
-        v-if="resultados.length > 0"
-        outlined
-        class="mt-4"
-      >
-        <v-card-text>
-          <div class="text-subtitle-1">
-            Encontradas {{ resultados.length }} operadora(s)
-          </div>
-        </v-card-text>
-      </v-card>
     </v-card-text>
   </v-card>
 </template>
@@ -156,14 +165,13 @@ export default {
       resultados: [],
       erro: null,
       buscaRealizada: false,
-      headers: [
-        { title: 'Registro ANS', key: 'registro_ans', sortable: true },
-        { title: 'Nome Fantasia', key: 'nome_fantasia', sortable: true },
-        { title: 'Razão Social', key: 'razao_social', sortable: true },
-        { title: 'CNPJ', key: 'cnpj', sortable: true },
-        { title: 'Modalidade', key: 'modalidade', sortable: true },
-        { title: 'Cidade', key: 'cidade', sortable: true },
-        { title: 'UF', key: 'uf', sortable: true }
+      paginaAtual: 1,
+      itensPorPagina: 12,
+      opcoesItensPorPagina: [
+        { text: '6 itens', value: 6 },
+        { text: '12 itens', value: 12 },
+        { text: '24 itens', value: 24 },
+        { text: '48 itens', value: 48 }
       ]
     };
   },
@@ -191,6 +199,23 @@ export default {
         'ativas-uf': 'Ex: SP'
       };
       return placeholders[this.tipoBusca] || 'Digite sua busca';
+    },
+    totalPaginas() {
+      return Math.ceil(this.resultados.length / this.itensPorPagina);
+    },
+    inicio() {
+      return (this.paginaAtual - 1) * this.itensPorPagina;
+    },
+    fim() {
+      return this.inicio + this.itensPorPagina;
+    },
+    resultadosPaginados() {
+      return this.resultados.slice(this.inicio, this.fim);
+    }
+  },
+  watch: {
+    itensPorPagina() {
+      this.paginaAtual = 1;
     }
   },
   methods: {
@@ -199,6 +224,13 @@ export default {
       this.resultados = [];
       this.erro = null;
       this.buscaRealizada = false;
+      this.paginaAtual = 1;
+    },
+    limparResultados() {
+      this.resultados = [];
+      this.erro = null;
+      this.buscaRealizada = false;
+      this.paginaAtual = 1;
     },
     async buscar() {
       if (!this.termoBusca.trim()) {
@@ -210,6 +242,7 @@ export default {
       this.erro = null;
       this.resultados = [];
       this.buscaRealizada = true;
+      this.paginaAtual = 1;
 
       try {
         let url;
@@ -273,10 +306,6 @@ export default {
 </script>
 
 <style scoped>
-.v-data-table {
-  margin-top: 1rem;
-}
-
 .v-card {
   transition: all 0.3s ease;
 }
@@ -284,5 +313,9 @@ export default {
 .v-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.mb-2 {
+  margin-bottom: 8px;
 }
 </style> 
