@@ -1,0 +1,88 @@
+{
+  "info": {
+    "name": "API de Análise de Operadoras",
+    "description": "Coleção para testar as rotas da API de análise de despesas das operadoras",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Busca de Operadoras",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8000/api/operadoras/busca?termo=SulAmérica&limite=10",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "operadoras", "busca"],
+          "query": [
+            {
+              "key": "termo",
+              "value": "SulAmérica",
+              "description": "Termo de busca"
+            },
+            {
+              "key": "limite",
+              "value": "10",
+              "description": "Número máximo de resultados"
+            }
+          ]
+        },
+        "description": "Busca operadoras por termo textual"
+      }
+    },
+    {
+      "name": "Despesas Último Trimestre",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8000/api/despesas/ultimo-trimestre",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "despesas", "ultimo-trimestre"]
+        },
+        "description": "Retorna as 10 operadoras com maiores despesas no último trimestre"
+      }
+    },
+    {
+      "name": "Despesas Último Ano",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8000/api/despesas/ultimo-ano",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "despesas", "ultimo-ano"]
+        },
+        "description": "Retorna as 10 operadoras com maiores despesas no último ano"
+      }
+    },
+    {
+      "name": "Tendência Mensal",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8000/api/despesas/tendencia-mensal",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "despesas", "tendencia-mensal"]
+        },
+        "description": "Retorna a evolução mensal das despesas"
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ]
+} 
