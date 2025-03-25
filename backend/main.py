@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import logging
 import traceback
 from config import DB_CONFIG
+import unicodedata
 
 # Configuração de logging mais detalhada
 logging.basicConfig(
@@ -82,13 +83,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+def normalize_text(text):
+    """Remove acentos e converte para minúsculo"""
+    if not text:
+        return text
+    # Normaliza para forma NFD e remove diacríticos
+    text = unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode('utf-8')
+    return text.lower()
+
 def get_db_connection():
     """
     Cria uma conexão com o banco de dados com as configurações corretas de encoding
     """
     try:
         logger.debug("Tentando conectar ao banco de dados...")
-        conn = psycopg2.connect(**DB_CONFIG, options='-c client_encoding=LATIN1')
+        conn = psycopg2.connect(
+            **DB_CONFIG,
+            options="-c client_encoding=UTF8"
+        )
         logger.debug("Conexão com banco de dados estabelecida com sucesso!")
         return conn
     except Exception as e:
@@ -125,24 +137,66 @@ async def buscar_operadora_cnpj(cnpj: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/operadoras/cidade/{cidade}")
-async def buscar_operadoras_cidade(cidade: str):
-    """Busca operadoras por cidade"""
+async def buscar_por_cidade(cidade: str):
+    """
+    Busca operadoras por cidade
+    """
     try:
+        logger.info(f"Recebida busca por cidade: {cidade}")
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("""
-            SELECT registro_ans, cnpj, razao_social, nome_fantasia, modalidade, 
-                   logradouro, numero, complemento, bairro, cidade, uf, cep
-            FROM operadoras 
-            WHERE cidade ILIKE %s
+        
+        # Normaliza o termo de busca
+        cidade_norm = normalize_text(cidade)
+        logger.info(f"Termo de busca normalizado: {cidade_norm}")
+        
+        query = """
+            SELECT 
+                registro_ans,
+                nome_fantasia,
+                razao_social,
+                cnpj,
+                modalidade,
+                cidade,
+                uf
+            FROM operadoras
+            WHERE normalize_text(cidade) ILIKE normalize_text(%s)
+            ORDER BY nome_fantasia
             LIMIT 100
-        """, (f"%{cidade}%",))
+        """
+        
+        # Criar função de normalização no PostgreSQL se não existir
+        cur.execute("""
+            CREATE OR REPLACE FUNCTION normalize_text(text)
+            RETURNS text AS
+            $$
+            BEGIN
+                RETURN translate(
+                    lower($1),
+                    'áàâãäéèêëíìîïóòôõöúùûüýÿçñ',
+                    'aaaaaeeeeiiiioooouuuuyycn'
+                );
+            END;
+            $$ LANGUAGE plpgsql IMMUTABLE;
+        """)
+        
+        search_term = f'%{cidade}%'
+        logger.info(f"Executando busca com termo: {search_term}")
+        
+        cur.execute(query, (search_term,))
         resultados = cur.fetchall()
+        
+        logger.info(f"Encontrados {len(resultados)} resultados")
+        if resultados and len(resultados) > 0:
+            logger.info(f"Primeiro resultado: {resultados[0]}")
+        
         cur.close()
         conn.close()
+        
         return resultados
     except Exception as e:
-        logger.error(f"Erro ao buscar operadoras: {e}")
+        logger.error(f"Erro ao buscar por cidade: {str(e)}")
+        logger.error(f"Traceback completo: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/operadoras-ativas/cidade/{cidade}")
@@ -156,7 +210,7 @@ async def buscar_operadoras_ativas_cidade(cidade: str):
                    logradouro, numero, complemento, bairro, cidade, uf, cep,
                    telefone, email, representante
             FROM operadoras_ativas 
-            WHERE cidade ILIKE %s
+            WHERE unaccent(LOWER(cidade)) LIKE unaccent(LOWER(%s))
             LIMIT 100
         """, (f"%{cidade}%",))
         resultados = cur.fetchall()
@@ -229,6 +283,111 @@ async def buscar_procedimentos_grupo(grupo: str):
         return resultados
     except Exception as e:
         logger.error(f"Erro ao buscar procedimentos: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/operadoras/nome-fantasia/{nome}")
+async def buscar_por_nome_fantasia(nome: str):
+    """
+    Busca operadoras por nome fantasia
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        query = """
+            SELECT 
+                registro_ans,
+                nome_fantasia,
+                razao_social,
+                cnpj,
+                modalidade,
+                cidade,
+                uf
+            FROM operadoras
+            WHERE nome_fantasia ILIKE %s
+            ORDER BY nome_fantasia
+            LIMIT 100
+        """
+        
+        cur.execute(query, (f'%{nome}%',))
+        resultados = cur.fetchall()
+        
+        cur.close()
+        conn.close()
+        
+        return resultados
+    except Exception as e:
+        logger.error(f"Erro ao buscar por nome fantasia: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/operadoras/razao-social/{nome}")
+async def buscar_por_razao_social(nome: str):
+    """
+    Busca operadoras por razão social
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        query = """
+            SELECT 
+                registro_ans,
+                nome_fantasia,
+                razao_social,
+                cnpj,
+                modalidade,
+                cidade,
+                uf
+            FROM operadoras
+            WHERE razao_social ILIKE %s
+            ORDER BY razao_social
+            LIMIT 100
+        """
+        
+        cur.execute(query, (f'%{nome}%',))
+        resultados = cur.fetchall()
+        
+        cur.close()
+        conn.close()
+        
+        return resultados
+    except Exception as e:
+        logger.error(f"Erro ao buscar por razão social: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/operadoras-ativas/uf/{uf}")
+async def buscar_operadoras_ativas_por_uf(uf: str):
+    """
+    Busca operadoras ativas por UF
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        query = """
+            SELECT 
+                oa.registro_ans,
+                oa.nome_fantasia,
+                oa.razao_social,
+                oa.cnpj,
+                oa.modalidade,
+                oa.cidade,
+                oa.uf
+            FROM operadoras_ativas oa
+            WHERE oa.uf ILIKE %s
+            ORDER BY oa.nome_fantasia
+            LIMIT 100
+        """
+        
+        cur.execute(query, (uf,))
+        resultados = cur.fetchall()
+        
+        cur.close()
+        conn.close()
+        
+        return resultados
+    except Exception as e:
+        logger.error(f"Erro ao buscar operadoras ativas por UF: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
