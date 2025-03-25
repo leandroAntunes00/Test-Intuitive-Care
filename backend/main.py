@@ -622,14 +622,19 @@ async def get_maiores_despesas_eventos():
         
         # Query para encontrar as 10 operadoras com maiores despesas
         query = """
-        WITH ultimo_trimestre AS (
+        WITH ultima_data AS (
+            SELECT MAX(data_demonstracao) as data_max
+            FROM demonstracoes_contabeis
+            WHERE data_demonstracao <= CURRENT_DATE
+        ),
+        ultimo_trimestre AS (
             SELECT DISTINCT ON (registro_ans) 
                 registro_ans,
                 data_demonstracao,
                 EXTRACT(YEAR FROM data_demonstracao) AS ano,
                 EXTRACT(QUARTER FROM data_demonstracao) AS trimestre
-            FROM demonstracoes_contabeis
-            WHERE data_demonstracao <= CURRENT_DATE
+            FROM demonstracoes_contabeis d
+            JOIN ultima_data ud ON d.data_demonstracao = ud.data_max
             ORDER BY registro_ans, data_demonstracao DESC
         ),
         despesas_eventos AS (
