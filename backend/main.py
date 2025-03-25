@@ -28,72 +28,157 @@ logger.debug(f"DB_PORT: {os.getenv('DB_PORT')}")
 app = FastAPI(
     title="API de Busca de Operadoras de Saúde",
     description="""
-    API para busca de informações sobre operadoras de saúde e suas demonstrações contábeis.
+    API para busca de informações sobre operadoras de saúde. Esta API permite consultar dados cadastrais
+    e informações detalhadas sobre operadoras de saúde no Brasil.
     
     ## Estrutura do Banco de Dados
     
     ### Tabelas Principais:
     
     1. **operadoras**
-       - Tabela base com dados cadastrais das operadoras
-       - Campos principais: registro_ans, cnpj, razao_social, nome_fantasia, modalidade, cidade, uf
+       - Tabela principal com dados cadastrais das operadoras
+       - Campos:
+         * registro_ans (chave primária)
+         * cnpj
+         * razao_social
+         * nome_fantasia
+         * modalidade
+         * logradouro
+         * numero
+         * complemento
+         * bairro
+         * cidade
+         * uf
+         * cep
     
-    2. **demonstracoes_contabeis**
-       - Dados financeiros das operadoras
-       - Campos principais: data_demonstracao, registro_ans, conta, descricao, saldo_inicial, saldo_final
+    2. **operadoras_ativas**
+       - Tabela com informações adicionais das operadoras ativas
+       - Campos:
+         * registro_ans (chave estrangeira)
+         * telefone
+         * email
+         * representante
+         * data_registro_ans
+
+    3. **demonstracoes_contabeis**
+       - Tabela com dados financeiros das operadoras
+       - Campos:
+         * id (chave primária)
+         * data_demonstracao
+         * registro_ans
+         * conta
+         * descricao
+         * saldo_inicial
+         * saldo_final
     
-    ## Endpoints por Domínio
+    ## Endpoints Disponíveis
 
-    ### 1. Operadoras
-    Endpoints para busca na tabela `operadoras`:
+    ### Busca de Operadoras
+
+    1. **Busca por CNPJ**
+       ```
+       GET /operadoras/cnpj/{cnpj}
+       ```
+       - Busca operadora pelo CNPJ exato
+       - Retorna dados completos incluindo endereço e contato
+       - Exemplo: /operadoras/cnpj/12345678901234
+
+    2. **Busca por Cidade**
+       ```
+       GET /operadoras/cidade/{cidade}
+       ```
+       - Busca todas as operadoras de uma cidade
+       - Case insensitive e ignora acentos
+       - Exemplo: /operadoras/cidade/sao%20paulo
+
+    3. **Busca por Nome Fantasia**
+       ```
+       GET /operadoras/nome-fantasia/{nome}
+       ```
+       - Busca por nome fantasia (busca parcial)
+       - Case insensitive e ignora acentos
+       - Exemplo: /operadoras/nome-fantasia/unimed
+
+    4. **Busca por Razão Social**
+       ```
+       GET /operadoras/razao-social/{nome}
+       ```
+       - Busca por razão social (busca parcial)
+       - Case insensitive e ignora acentos
+       - Exemplo: /operadoras/razao-social/saude
+
+    5. **Busca por UF**
+       ```
+       GET /operadoras/uf/{uf}
+       ```
+       - Lista todas as operadoras de um estado
+       - Case insensitive
+       - Exemplo: /operadoras/uf/SP
+
+    ### Análises Financeiras
+
+    1. **Maiores Despesas em Eventos/Sinistros**
+       ```
+       GET /demonstracoes/maiores-despesas-eventos
+       ```
+       - Retorna as 10 operadoras com maiores despesas em eventos/sinistros médico-hospitalares no último trimestre
+       - Ordenado por valor de despesa (decrescente)
+       - Retorna:
+         * Nome da operadora
+         * Registro ANS
+         * Valor da despesa
+         * Trimestre de referência
+         * Ranking
+
+    ## Formato de Retorno
+
+    Todas as buscas retornam os seguintes campos quando disponíveis:
+    ```json
+    {
+        "registro_ans": "123456",
+        "cnpj": "12345678901234",
+        "razao_social": "Nome da Empresa LTDA",
+        "nome_fantasia": "Nome Fantasia",
+        "modalidade": "Tipo de Operadora",
+        "logradouro": "Rua/Avenida",
+        "numero": "123",
+        "complemento": "Sala 1",
+        "bairro": "Nome do Bairro",
+        "cidade": "Nome da Cidade",
+        "uf": "UF",
+        "cep": "12345678",
+        "telefone": "(11) 1234-5678",
+        "email": "contato@operadora.com",
+        "representante": "Nome do Representante",
+        "data_registro_ans": "2023-01-01",
+        "is_ativa": true
+    }
     ```
-    GET /operadoras/cnpj/{cnpj}
-        - Busca operadora por CNPJ
-        - Retorna dados completos da operadora
 
-    GET /operadoras/cidade/{cidade}
-        - Busca operadoras por cidade
-        - Retorna lista de operadoras da cidade
-
-    GET /operadoras/nome-fantasia/{nome}
-        - Busca operadoras por nome fantasia
-        - Suporta busca parcial (LIKE)
-
-    GET /operadoras/razao-social/{nome}
-        - Busca operadoras por razão social
-        - Suporta busca parcial (LIKE)
-
-    GET /operadoras/uf/{uf}
-        - Busca operadoras por UF
-        - Retorna todas as operadoras do estado
-    ```
-
-    ### 2. Demonstrações Contábeis
-    Endpoints para busca na tabela `demonstracoes_contabeis`:
-    ```
-    GET /demonstracoes/periodo/{data_inicio}/{data_fim}
-        - Busca demonstrações por período
-        - Formato de data: YYYY-MM-DD
-
-    GET /demonstracoes/saldo-negativo
-        - Lista demonstrações com saldo final negativo
-        - Ordenado por data (mais recente primeiro)
-    ```
-
-    ### 3. Procedimentos
-    Endpoints para busca na tabela `rol_procedimentos`:
-    ```
-    GET /procedimentos/grupo/{grupo}
-        - Busca procedimentos por grupo
-        - Suporta busca parcial (LIKE)
+    Para o endpoint de análise financeira, o retorno tem o seguinte formato:
+    ```json
+    {
+        "nome_operadora": "Nome da Operadora",
+        "registro_ans": "123456",
+        "valor_despesa": 1234567.89,
+        "trimestre": "2024-1",
+        "ranking": 1
+    }
     ```
 
     ## Notas Importantes
-    - Todos os endpoints são paginados com limite de 100 registros
+    - Todas as buscas são paginadas com limite de 100 registros
     - Buscas textuais ignoram acentuação e são case-insensitive
-    - Resultados são ordenados por nome_fantasia ou data, conforme contexto
+    - O campo `is_ativa` indica se a operadora está na tabela `operadoras_ativas`
+    - Campos podem retornar nulos quando não disponíveis
+    - CEP e CNPJ são retornados sem formatação
+    - Valores monetários são retornados como números decimais
     """,
-    version="1.0.0"
+    version="1.0.0",
+    contact={
+        "name": "Suporte API Operadoras",
+        "email": "suporte@operadoras.com"
+    }
 )
 
 # Configuração CORS
@@ -188,9 +273,20 @@ async def buscar_por_cidade(cidade: str):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
-        # Normaliza o termo de busca
-        cidade_norm = normalize_text(cidade)
-        logger.info(f"Termo de busca normalizado: {cidade_norm}")
+        # Criar função de normalização no PostgreSQL se não existir
+        cur.execute("""
+            CREATE OR REPLACE FUNCTION normalize_text(text)
+            RETURNS text AS
+            $$
+            BEGIN
+                RETURN translate(
+                    lower($1),
+                    'áàâãäéèêëíìîïóòôõöúùûüýÿçñ',
+                    'aaaaaeeeeiiiioooouuuuyycn'
+                );
+            END;
+            $$ LANGUAGE plpgsql IMMUTABLE;
+        """)
         
         query = """
             SELECT 
@@ -216,25 +312,10 @@ async def buscar_por_cidade(cidade: str):
                 END as is_ativa
             FROM operadoras o
             LEFT JOIN operadoras_ativas oa ON o.registro_ans = oa.registro_ans
-            WHERE normalize_text(o.cidade) LIKE %s
+            WHERE normalize_text(o.cidade) LIKE normalize_text(%s)
             ORDER BY o.nome_fantasia
             LIMIT 100
         """
-        
-        # Criar função de normalização no PostgreSQL se não existir
-        cur.execute("""
-            CREATE OR REPLACE FUNCTION normalize_text(text)
-            RETURNS text AS
-            $$
-            BEGIN
-                RETURN translate(
-                    lower($1),
-                    'áàâãäéèêëíìîïóòôõöúùûüýÿçñ',
-                    'aaaaaeeeeiiiioooouuuuyycn'
-                );
-            END;
-            $$ LANGUAGE plpgsql IMMUTABLE;
-        """)
         
         search_term = f'%{cidade}%'
         logger.info(f"Executando busca com termo: {search_term}")
@@ -345,6 +426,21 @@ async def buscar_por_nome_fantasia(nome: str):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
+        # Criar função de normalização no PostgreSQL se não existir
+        cur.execute("""
+            CREATE OR REPLACE FUNCTION normalize_text(text)
+            RETURNS text AS
+            $$
+            BEGIN
+                RETURN translate(
+                    lower($1),
+                    'áàâãäéèêëíìîïóòôõöúùûüýÿçñ',
+                    'aaaaaeeeeiiiioooouuuuyycn'
+                );
+            END;
+            $$ LANGUAGE plpgsql IMMUTABLE;
+        """)
+        
         query = """
             SELECT 
                 o.registro_ans,
@@ -369,12 +465,13 @@ async def buscar_por_nome_fantasia(nome: str):
                 END as is_ativa
             FROM operadoras o
             LEFT JOIN operadoras_ativas oa ON o.registro_ans = oa.registro_ans
-            WHERE normalize_text(o.nome_fantasia) LIKE %s
+            WHERE normalize_text(o.nome_fantasia) LIKE normalize_text(%s)
             ORDER BY o.nome_fantasia
             LIMIT 100
         """
         
-        cur.execute(query, (f'%{nome}%',))
+        search_term = f'%{nome}%'
+        cur.execute(query, (search_term,))
         resultados = cur.fetchall()
         
         cur.close()
@@ -394,6 +491,21 @@ async def buscar_por_razao_social(nome: str):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
+        # Criar função de normalização no PostgreSQL se não existir
+        cur.execute("""
+            CREATE OR REPLACE FUNCTION normalize_text(text)
+            RETURNS text AS
+            $$
+            BEGIN
+                RETURN translate(
+                    lower($1),
+                    'áàâãäéèêëíìîïóòôõöúùûüýÿçñ',
+                    'aaaaaeeeeiiiioooouuuuyycn'
+                );
+            END;
+            $$ LANGUAGE plpgsql IMMUTABLE;
+        """)
+        
         query = """
             SELECT 
                 o.registro_ans,
@@ -401,6 +513,10 @@ async def buscar_por_razao_social(nome: str):
                 o.razao_social,
                 o.cnpj,
                 o.modalidade,
+                o.logradouro,
+                o.numero,
+                o.complemento,
+                o.bairro,
                 o.cidade,
                 o.uf,
                 o.cep,
@@ -414,12 +530,13 @@ async def buscar_por_razao_social(nome: str):
                 END as is_ativa
             FROM operadoras o
             LEFT JOIN operadoras_ativas oa ON o.registro_ans = oa.registro_ans
-            WHERE o.razao_social ILIKE %s
+            WHERE normalize_text(o.razao_social) LIKE normalize_text(%s)
             ORDER BY o.razao_social
             LIMIT 100
         """
         
-        cur.execute(query, (f'%{nome}%',))
+        search_term = f'%{nome}%'
+        cur.execute(query, (search_term,))
         resultados = cur.fetchall()
         
         cur.close()
@@ -478,6 +595,81 @@ async def buscar_operadoras_por_uf(uf: str):
     except Exception as e:
         logger.error(f"Erro ao buscar operadoras por UF: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/demonstracoes/maiores-despesas-eventos", tags=["Análises Financeiras"])
+async def get_maiores_despesas_eventos():
+    """
+    Retorna as 10 operadoras com maiores despesas em eventos/sinistros médico-hospitalares no último trimestre.
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # Criar função de normalização no PostgreSQL se não existir
+        cur.execute("""
+            CREATE OR REPLACE FUNCTION normalize_text(text)
+            RETURNS text AS
+            $$
+            BEGIN
+                RETURN translate(
+                    lower($1),
+                    'áàâãäéèêëíìîïóòôõöúùûüýÿçñ',
+                    'aaaaaeeeeiiiioooouuuuyycn'
+                );
+            END;
+            $$ LANGUAGE plpgsql IMMUTABLE;
+        """)
+        
+        # Query para encontrar as 10 operadoras com maiores despesas
+        query = """
+        WITH ultimo_trimestre AS (
+            SELECT DISTINCT ON (registro_ans) 
+                registro_ans,
+                data_demonstracao,
+                EXTRACT(YEAR FROM data_demonstracao) AS ano,
+                EXTRACT(QUARTER FROM data_demonstracao) AS trimestre
+            FROM demonstracoes_contabeis
+            WHERE data_demonstracao <= CURRENT_DATE
+            ORDER BY registro_ans, data_demonstracao DESC
+        ),
+        despesas_eventos AS (
+            SELECT 
+                o.nome_fantasia,
+                o.razao_social,
+                o.registro_ans,
+                SUM(ABS(d.saldo_final)) as valor_despesa,
+                ut.ano,
+                ut.trimestre
+            FROM demonstracoes_contabeis d
+            JOIN ultimo_trimestre ut ON d.registro_ans = ut.registro_ans 
+                AND d.data_demonstracao = ut.data_demonstracao
+            JOIN operadoras o ON d.registro_ans = o.registro_ans
+            WHERE d.descricao ILIKE '%EVENTOS%SINISTROS%CONHECIDOS%AVISADOS%MEDICO%HOSPITALAR%'
+            GROUP BY o.nome_fantasia, o.razao_social, o.registro_ans, ut.ano, ut.trimestre
+        )
+        SELECT 
+            CASE 
+                WHEN nome_fantasia = 'nan' OR nome_fantasia IS NULL OR nome_fantasia = '' 
+                THEN COALESCE(NULLIF(razao_social, ''), 'Operadora ' || registro_ans)
+                ELSE nome_fantasia
+            END as nome_operadora,
+            registro_ans,
+            valor_despesa,
+            ano || '-T' || trimestre as trimestre,
+            ROW_NUMBER() OVER (ORDER BY valor_despesa DESC) as ranking
+        FROM despesas_eventos
+        ORDER BY valor_despesa DESC
+        LIMIT 10;
+        """
+        
+        cur.execute(query)
+        results = cur.fetchall()
+        conn.close()
+        
+        return results
+    except Exception as e:
+        logger.error(f"Erro ao buscar maiores despesas: {str(e)}")
+        raise HTTPException(status_code=500, detail="Erro ao buscar dados de despesas")
 
 if __name__ == "__main__":
     import uvicorn
