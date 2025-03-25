@@ -26,9 +26,9 @@ logger.debug(f"DB_HOST: {os.getenv('DB_HOST')}")
 logger.debug(f"DB_PORT: {os.getenv('DB_PORT')}")
 
 app = FastAPI(
-    title="API de Busca em Demonstrações Contábeis",
+    title="API de Busca de Operadoras de Saúde",
     description="""
-    API para busca de informações em demonstrações contábeis de operadoras de saúde.
+    API para busca de informações sobre operadoras de saúde e suas demonstrações contábeis.
     
     ## Estrutura do Banco de Dados
     
@@ -36,40 +36,62 @@ app = FastAPI(
     
     1. **operadoras**
        - Tabela base com dados cadastrais das operadoras
-       - Campos principais: registro_ans, cnpj, razao_social, nome_fantasia, modalidade
+       - Campos principais: registro_ans, cnpj, razao_social, nome_fantasia, modalidade, cidade, uf
     
-    2. **operadoras_ativas**
-       - Subconjunto de operadoras atualmente ativas
-       - Campos adicionais: telefone, email, representante
-       - Relacionada com operadoras via registro_ans
-    
-    3. **demonstracoes_contabeis**
+    2. **demonstracoes_contabeis**
        - Dados financeiros das operadoras
        - Campos principais: data_demonstracao, registro_ans, conta, descricao, saldo_inicial, saldo_final
     
-    4. **rol_procedimentos**
-       - Catálogo de procedimentos médicos
-       - Campos principais: procedimento, od, amb, vigencia, grupo, subgrupo
-    
-    ## Endpoints Disponíveis
-    
-    ### Buscas em Operadoras
-    - `/operadoras/cnpj/{cnpj}` - Busca operadora por CNPJ
-    - `/operadoras/cidade/{cidade}` - Busca operadoras por cidade
-    - `/operadoras/modalidade/{modalidade}` - Busca operadoras por modalidade
-    
-    ### Buscas em Operadoras Ativas
-    - `/operadoras-ativas/cidade/{cidade}` - Busca operadoras ativas por cidade
-    - `/operadoras-ativas/uf/{uf}` - Busca operadoras ativas por UF
-    
-    ### Buscas em Demonstrações
-    - `/demonstracoes/periodo/{data_inicio}/{data_fim}` - Busca demonstrações por período
-    - `/demonstracoes/conta/{conta}` - Busca demonstrações por conta
-    - `/demonstracoes/saldo-negativo` - Busca demonstrações com saldo negativo
-    
-    ### Buscas em Procedimentos
-    - `/procedimentos/grupo/{grupo}` - Busca procedimentos por grupo
-    - `/procedimentos/subgrupo/{subgrupo}` - Busca procedimentos por subgrupo
+    ## Endpoints por Domínio
+
+    ### 1. Operadoras
+    Endpoints para busca na tabela `operadoras`:
+    ```
+    GET /operadoras/cnpj/{cnpj}
+        - Busca operadora por CNPJ
+        - Retorna dados completos da operadora
+
+    GET /operadoras/cidade/{cidade}
+        - Busca operadoras por cidade
+        - Retorna lista de operadoras da cidade
+
+    GET /operadoras/nome-fantasia/{nome}
+        - Busca operadoras por nome fantasia
+        - Suporta busca parcial (LIKE)
+
+    GET /operadoras/razao-social/{nome}
+        - Busca operadoras por razão social
+        - Suporta busca parcial (LIKE)
+
+    GET /operadoras/uf/{uf}
+        - Busca operadoras por UF
+        - Retorna todas as operadoras do estado
+    ```
+
+    ### 2. Demonstrações Contábeis
+    Endpoints para busca na tabela `demonstracoes_contabeis`:
+    ```
+    GET /demonstracoes/periodo/{data_inicio}/{data_fim}
+        - Busca demonstrações por período
+        - Formato de data: YYYY-MM-DD
+
+    GET /demonstracoes/saldo-negativo
+        - Lista demonstrações com saldo final negativo
+        - Ordenado por data (mais recente primeiro)
+    ```
+
+    ### 3. Procedimentos
+    Endpoints para busca na tabela `rol_procedimentos`:
+    ```
+    GET /procedimentos/grupo/{grupo}
+        - Busca procedimentos por grupo
+        - Suporta busca parcial (LIKE)
+    ```
+
+    ## Notas Importantes
+    - Todos os endpoints são paginados com limite de 100 registros
+    - Buscas textuais ignoram acentuação e são case-insensitive
+    - Resultados são ordenados por nome_fantasia ou data, conforme contexto
     """,
     version="1.0.0"
 )
@@ -355,10 +377,10 @@ async def buscar_por_razao_social(nome: str):
         logger.error(f"Erro ao buscar por razão social: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/operadoras-ativas/uf/{uf}")
-async def buscar_operadoras_ativas_por_uf(uf: str):
+@app.get("/operadoras/uf/{uf}")
+async def buscar_operadoras_por_uf(uf: str):
     """
-    Busca operadoras ativas por UF
+    Busca operadoras por UF
     """
     try:
         conn = get_db_connection()
@@ -366,16 +388,16 @@ async def buscar_operadoras_ativas_por_uf(uf: str):
         
         query = """
             SELECT 
-                oa.registro_ans,
-                oa.nome_fantasia,
-                oa.razao_social,
-                oa.cnpj,
-                oa.modalidade,
-                oa.cidade,
-                oa.uf
-            FROM operadoras_ativas oa
-            WHERE oa.uf ILIKE %s
-            ORDER BY oa.nome_fantasia
+                registro_ans,
+                nome_fantasia,
+                razao_social,
+                cnpj,
+                modalidade,
+                cidade,
+                uf
+            FROM operadoras
+            WHERE uf ILIKE %s
+            ORDER BY nome_fantasia
             LIMIT 100
         """
         
@@ -387,7 +409,7 @@ async def buscar_operadoras_ativas_por_uf(uf: str):
         
         return resultados
     except Exception as e:
-        logger.error(f"Erro ao buscar operadoras ativas por UF: {str(e)}")
+        logger.error(f"Erro ao buscar operadoras por UF: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
