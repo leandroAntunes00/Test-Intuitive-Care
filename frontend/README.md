@@ -1,11 +1,11 @@
-# Frontend - Sistema de Análise de Despesas das Operadoras
+# Frontend - Sistema de Busca de Operadoras
 
 ## 📋 Descrição
-Interface web desenvolvida em Vue.js para visualização e análise de dados relacionados a operadoras de saúde e suas despesas.
+Interface web desenvolvida em Vue.js para busca e visualização de dados relacionados a operadoras de saúde.
 
 ## 🎯 Funcionalidades
 
-### 1. Busca de Operadoras
+### Busca de Operadoras
 - Pesquisa por nome da operadora
 - Exibição de resultados com:
   - Total de eventos
@@ -13,16 +13,9 @@ Interface web desenvolvida em Vue.js para visualização e análise de dados rel
   - Relevância da busca
   - Percentual do total
 
-### 2. Análise de Despesas
-- Visualização do último trimestre
-- Análise do último ano
-- Tendência mensal em gráfico
-
 ## 🛠 Tecnologias Utilizadas
 - Vue.js 3
 - Vuetify 3
-- Chart.js
-- Vue Chart.js
 - Axios
 
 ## 📁 Estrutura do Projeto
@@ -30,8 +23,7 @@ Interface web desenvolvida em Vue.js para visualização e análise de dados rel
 frontend/
 ├── src/
 │   ├── components/     # Componentes Vue
-│   │   ├── BuscaOperadoras.vue
-│   │   └── LineChart.vue
+│   │   └── BuscaOperadoras.vue
 │   ├── App.vue        # Componente principal
 │   └── main.js        # Ponto de entrada
 ├── public/            # Arquivos estáticos
@@ -90,19 +82,10 @@ yarn preview
 - Formatação de valores monetários
 - Indicadores de relevância
 
-### LineChart
-- Gráfico de linha para tendências
-- Formatação de valores no eixo Y
-- Legendas e tooltips
-- Responsividade
-
 ## 🔍 Integração com Backend
-O frontend se comunica com as seguintes rotas da API:
+O frontend se comunica com a seguinte rota da API:
 
 - `GET /api/operadoras/busca` - Busca de operadoras
-- `GET /api/despesas/ultimo-trimestre` - Dados do último trimestre
-- `GET /api/despesas/ultimo-ano` - Dados do último ano
-- `GET /api/despesas/tendencia-mensal` - Dados para o gráfico de tendência
 
 ## 📝 Notas
 - A aplicação é responsiva e funciona em dispositivos móveis

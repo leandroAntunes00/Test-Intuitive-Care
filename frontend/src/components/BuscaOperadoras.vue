@@ -4,11 +4,19 @@
     <v-card-text>
       <v-form @submit.prevent="buscar">
         <v-row>
-          <v-col cols="12" md="8">
+          <v-col cols="12" md="4">
+            <v-select
+              v-model="tipoBusca"
+              :items="tiposBusca"
+              label="Tipo de Busca"
+              @change="limparBusca"
+            ></v-select>
+          </v-col>
+          <v-col cols="12" md="4">
             <v-text-field
               v-model="termoBusca"
-              label="Digite o nome da operadora"
-              placeholder="Ex: SulAmérica, Bradesco..."
+              :label="labelBusca"
+              :placeholder="placeholderBusca"
               :loading="loading"
               @keyup.enter="buscar"
             ></v-text-field>
@@ -42,6 +50,9 @@
         <template #[`item.relevancia`]="{ item }">
           {{ (item.relevancia * 100).toFixed(2) }}%
         </template>
+        <template #[`item.cnpj`]="{ item }">
+          {{ formatarCNPJ(item.cnpj) }}
+        </template>
       </v-data-table>
 
       <v-alert
@@ -70,12 +81,28 @@ export default {
   name: 'BuscaOperadoras',
   data() {
     return {
+      tipoBusca: 'cnpj',
+      tiposBusca: [
+        { title: 'CNPJ', value: 'cnpj' },
+        { title: 'Nome Fantasia', value: 'nome-fantasia' },
+        { title: 'Razão Social', value: 'razao-social' },
+        { title: 'Cidade', value: 'cidade' },
+        { title: 'Modalidade', value: 'modalidade' },
+        { title: 'Operadoras Ativas por Cidade', value: 'ativas-cidade' },
+        { title: 'Operadoras Ativas por UF', value: 'ativas-uf' }
+      ],
       termoBusca: '',
       loading: false,
       resultados: [],
       erro: null,
       headers: [
-        { title: 'Operadora', key: 'operadora' },
+        { title: 'Registro ANS', key: 'registro_ans' },
+        { title: 'Nome Fantasia', key: 'nome_fantasia' },
+        { title: 'Razão Social', key: 'razao_social' },
+        { title: 'CNPJ', key: 'cnpj' },
+        { title: 'Modalidade', key: 'modalidade' },
+        { title: 'Cidade', key: 'cidade' },
+        { title: 'UF', key: 'uf' },
         { title: 'Total Eventos', key: 'total_eventos' },
         { title: 'Total Despesas', key: 'total_despesas' },
         { title: 'Relevância', key: 'relevancia' },
@@ -83,7 +110,38 @@ export default {
       ]
     };
   },
+  computed: {
+    labelBusca() {
+      const labels = {
+        'cnpj': 'Digite o CNPJ',
+        'nome-fantasia': 'Digite o nome fantasia',
+        'razao-social': 'Digite a razão social',
+        'cidade': 'Digite a cidade',
+        'modalidade': 'Digite a modalidade',
+        'ativas-cidade': 'Digite a cidade',
+        'ativas-uf': 'Digite a UF'
+      };
+      return labels[this.tipoBusca];
+    },
+    placeholderBusca() {
+      const placeholders = {
+        'cnpj': 'Ex: 12345678901234',
+        'nome-fantasia': 'Ex: SulAmérica',
+        'razao-social': 'Ex: SulAmérica Seguradora de Vida e Previdência',
+        'cidade': 'Ex: São Paulo',
+        'modalidade': 'Ex: Cooperativa',
+        'ativas-cidade': 'Ex: Rio de Janeiro',
+        'ativas-uf': 'Ex: SP'
+      };
+      return placeholders[this.tipoBusca];
+    }
+  },
   methods: {
+    limparBusca() {
+      this.termoBusca = '';
+      this.resultados = [];
+      this.erro = null;
+    },
     async buscar() {
       if (!this.termoBusca.trim()) return;
 
@@ -91,13 +149,33 @@ export default {
       this.erro = null;
 
       try {
-        const response = await axios.get('/api/operadoras/busca', {
-          params: {
-            termo: this.termoBusca,
-            limite: 10
-          }
-        });
-        this.resultados = response.data;
+        let url;
+        switch (this.tipoBusca) {
+          case 'cnpj':
+            url = `/api/operadoras/cnpj/${this.termoBusca}`;
+            break;
+          case 'nome-fantasia':
+            url = `/api/operadoras/nome-fantasia/${this.termoBusca}`;
+            break;
+          case 'razao-social':
+            url = `/api/operadoras/razao-social/${this.termoBusca}`;
+            break;
+          case 'cidade':
+            url = `/api/operadoras/cidade/${this.termoBusca}`;
+            break;
+          case 'modalidade':
+            url = `/api/operadoras/modalidade/${this.termoBusca}`;
+            break;
+          case 'ativas-cidade':
+            url = `/api/operadoras-ativas/cidade/${this.termoBusca}`;
+            break;
+          case 'ativas-uf':
+            url = `/api/operadoras-ativas/uf/${this.termoBusca}`;
+            break;
+        }
+
+        const response = await axios.get(url);
+        this.resultados = Array.isArray(response.data) ? response.data : [response.data];
       } catch (error) {
         this.erro = 'Erro ao buscar operadoras. Tente novamente.';
         console.error('Erro na busca:', error);
@@ -110,6 +188,9 @@ export default {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
       }).format(valor);
+    },
+    formatarCNPJ(cnpj) {
+      return cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
     }
   }
 };
