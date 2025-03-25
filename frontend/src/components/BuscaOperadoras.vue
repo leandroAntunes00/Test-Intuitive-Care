@@ -19,6 +19,7 @@
               :placeholder="placeholderBusca"
               :loading="loading"
               @keyup.enter="buscar"
+              clearable
             ></v-text-field>
           </v-col>
           <v-col cols="12" md="4">
@@ -26,6 +27,7 @@
               color="primary"
               block
               :loading="loading"
+              :disabled="!termoBusca.trim()"
               @click="buscar"
             >
               Buscar
@@ -34,27 +36,66 @@
         </v-row>
       </v-form>
 
+      <!-- Resultados em Cards -->
+      <v-row v-if="resultados.length > 0" class="mt-4">
+        <v-col 
+          v-for="(operadora, index) in resultados" 
+          :key="index"
+          cols="12"
+          sm="6"
+          md="4"
+        >
+          <v-card
+            class="mx-auto"
+            outlined
+          >
+            <v-card-title class="text-h6">
+              {{ operadora.nome_fantasia || 'Nome não informado' }}
+            </v-card-title>
+            
+            <v-card-text>
+              <v-row no-gutters>
+                <v-col cols="12">
+                  <strong>Registro ANS:</strong> {{ operadora.registro_ans }}
+                </v-col>
+                <v-col cols="12">
+                  <strong>CNPJ:</strong> {{ formatarCNPJ(operadora.cnpj) }}
+                </v-col>
+                <v-col cols="12">
+                  <strong>Razão Social:</strong> {{ operadora.razao_social }}
+                </v-col>
+                <v-col cols="12">
+                  <strong>Modalidade:</strong> {{ operadora.modalidade }}
+                </v-col>
+                <v-col cols="12">
+                  <strong>Localização:</strong> {{ operadora.cidade }} - {{ operadora.uf }}
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-card>
+        </v-col>
+      </v-row>
+
+      <!-- Tabela de Resultados -->
       <v-data-table
         v-if="resultados.length > 0"
         :headers="headers"
         :items="resultados"
         :loading="loading"
         class="elevation-1 mt-4"
+        dense
+        :items-per-page="10"
+        :footer-props="{
+          'items-per-page-options': [10, 20, 50, 100],
+          'items-per-page-text': 'Itens por página'
+        }"
       >
-        <template #[`item.total_despesas`]="{ item }">
-          R$ {{ formatarValor(item.total_despesas) }}
-        </template>
-        <template #[`item.percentual_total`]="{ item }">
-          {{ item.percentual_total }}%
-        </template>
-        <template #[`item.relevancia`]="{ item }">
-          {{ (item.relevancia * 100).toFixed(2) }}%
-        </template>
         <template #[`item.cnpj`]="{ item }">
           {{ formatarCNPJ(item.cnpj) }}
         </template>
       </v-data-table>
 
+      <!-- Mensagens de Erro/Info -->
       <v-alert
         v-if="erro"
         type="error"
@@ -64,12 +105,25 @@
       </v-alert>
 
       <v-alert
-        v-if="!loading && termoBusca && resultados.length === 0"
+        v-if="!loading && buscaRealizada && resultados.length === 0"
         type="info"
         class="mt-4"
       >
         Nenhuma operadora encontrada com o termo "{{ termoBusca }}"
       </v-alert>
+
+      <!-- Resumo dos Resultados -->
+      <v-card
+        v-if="resultados.length > 0"
+        outlined
+        class="mt-4"
+      >
+        <v-card-text>
+          <div class="text-subtitle-1">
+            Encontradas {{ resultados.length }} operadora(s)
+          </div>
+        </v-card-text>
+      </v-card>
     </v-card-text>
   </v-card>
 </template>
@@ -77,16 +131,22 @@
 <script>
 import axios from 'axios';
 
+// Configuração base do Axios
+const api = axios.create({
+  baseURL: 'http://localhost:8000',
+  timeout: 5000
+});
+
 export default {
   name: 'BuscaOperadoras',
   data() {
     return {
-      tipoBusca: 'cnpj',
+      tipoBusca: 'cidade',  // Mudei o padrão para cidade
       tiposBusca: [
+        { title: 'Cidade', value: 'cidade' },
         { title: 'CNPJ', value: 'cnpj' },
         { title: 'Nome Fantasia', value: 'nome-fantasia' },
         { title: 'Razão Social', value: 'razao-social' },
-        { title: 'Cidade', value: 'cidade' },
         { title: 'Modalidade', value: 'modalidade' },
         { title: 'Operadoras Ativas por Cidade', value: 'ativas-cidade' },
         { title: 'Operadoras Ativas por UF', value: 'ativas-uf' }
@@ -95,18 +155,15 @@ export default {
       loading: false,
       resultados: [],
       erro: null,
+      buscaRealizada: false,
       headers: [
-        { title: 'Registro ANS', key: 'registro_ans' },
-        { title: 'Nome Fantasia', key: 'nome_fantasia' },
-        { title: 'Razão Social', key: 'razao_social' },
-        { title: 'CNPJ', key: 'cnpj' },
-        { title: 'Modalidade', key: 'modalidade' },
-        { title: 'Cidade', key: 'cidade' },
-        { title: 'UF', key: 'uf' },
-        { title: 'Total Eventos', key: 'total_eventos' },
-        { title: 'Total Despesas', key: 'total_despesas' },
-        { title: 'Relevância', key: 'relevancia' },
-        { title: '% do Total', key: 'percentual_total' }
+        { title: 'Registro ANS', key: 'registro_ans', sortable: true },
+        { title: 'Nome Fantasia', key: 'nome_fantasia', sortable: true },
+        { title: 'Razão Social', key: 'razao_social', sortable: true },
+        { title: 'CNPJ', key: 'cnpj', sortable: true },
+        { title: 'Modalidade', key: 'modalidade', sortable: true },
+        { title: 'Cidade', key: 'cidade', sortable: true },
+        { title: 'UF', key: 'uf', sortable: true }
       ]
     };
   },
@@ -121,19 +178,19 @@ export default {
         'ativas-cidade': 'Digite a cidade',
         'ativas-uf': 'Digite a UF'
       };
-      return labels[this.tipoBusca];
+      return labels[this.tipoBusca] || 'Digite o termo de busca';
     },
     placeholderBusca() {
       const placeholders = {
         'cnpj': 'Ex: 12345678901234',
-        'nome-fantasia': 'Ex: SulAmérica',
-        'razao-social': 'Ex: SulAmérica Seguradora de Vida e Previdência',
-        'cidade': 'Ex: São Paulo',
+        'nome-fantasia': 'Ex: SulAmerica',
+        'razao-social': 'Ex: SulAmerica Seguradora',
+        'cidade': 'Ex: Sao Paulo',
         'modalidade': 'Ex: Cooperativa',
         'ativas-cidade': 'Ex: Rio de Janeiro',
         'ativas-uf': 'Ex: SP'
       };
-      return placeholders[this.tipoBusca];
+      return placeholders[this.tipoBusca] || 'Digite sua busca';
     }
   },
   methods: {
@@ -141,55 +198,74 @@ export default {
       this.termoBusca = '';
       this.resultados = [];
       this.erro = null;
+      this.buscaRealizada = false;
     },
     async buscar() {
-      if (!this.termoBusca.trim()) return;
+      if (!this.termoBusca.trim()) {
+        this.erro = 'Por favor, digite um termo para busca';
+        return;
+      }
 
       this.loading = true;
       this.erro = null;
+      this.resultados = [];
+      this.buscaRealizada = true;
 
       try {
         let url;
+        const termo = encodeURIComponent(this.termoBusca.trim());
+        
         switch (this.tipoBusca) {
           case 'cnpj':
-            url = `/api/operadoras/cnpj/${this.termoBusca}`;
+            url = `/operadoras/cnpj/${termo}`;
             break;
           case 'nome-fantasia':
-            url = `/api/operadoras/nome-fantasia/${this.termoBusca}`;
+            url = `/operadoras/nome-fantasia/${termo}`;
             break;
           case 'razao-social':
-            url = `/api/operadoras/razao-social/${this.termoBusca}`;
+            url = `/operadoras/razao-social/${termo}`;
             break;
           case 'cidade':
-            url = `/api/operadoras/cidade/${this.termoBusca}`;
+            url = `/operadoras/cidade/${termo}`;
             break;
           case 'modalidade':
-            url = `/api/operadoras/modalidade/${this.termoBusca}`;
+            url = `/operadoras/modalidade/${termo}`;
             break;
           case 'ativas-cidade':
-            url = `/api/operadoras-ativas/cidade/${this.termoBusca}`;
+            url = `/operadoras-ativas/cidade/${termo}`;
             break;
           case 'ativas-uf':
-            url = `/api/operadoras-ativas/uf/${this.termoBusca}`;
+            url = `/operadoras-ativas/uf/${termo}`;
             break;
         }
 
-        const response = await axios.get(url);
-        this.resultados = Array.isArray(response.data) ? response.data : [response.data];
+        console.log('Fazendo requisição para:', url); // Debug
+        const response = await api.get(url);
+        console.log('Resposta:', response.data); // Debug
+        
+        if (Array.isArray(response.data)) {
+          this.resultados = response.data;
+        } else if (response.data) {
+          this.resultados = [response.data];
+        }
+
       } catch (error) {
-        this.erro = 'Erro ao buscar operadoras. Tente novamente.';
         console.error('Erro na busca:', error);
+        if (error.response) {
+          if (error.response.status === 404) {
+            this.erro = 'Nenhuma operadora encontrada com os critérios informados';
+          } else {
+            this.erro = `Erro ao buscar operadoras: ${error.response.data.detail || 'Tente novamente'}`;
+          }
+        } else {
+          this.erro = 'Erro ao conectar com o servidor. Verifique sua conexão.';
+        }
       } finally {
         this.loading = false;
       }
     },
-    formatarValor(valor) {
-      return new Intl.NumberFormat('pt-BR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }).format(valor);
-    },
     formatarCNPJ(cnpj) {
+      if (!cnpj) return '';
       return cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
     }
   }
@@ -199,5 +275,14 @@ export default {
 <style scoped>
 .v-data-table {
   margin-top: 1rem;
+}
+
+.v-card {
+  transition: all 0.3s ease;
+}
+
+.v-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 </style> 
