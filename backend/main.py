@@ -6,6 +6,7 @@ import os
 from dotenv import load_dotenv
 import logging
 import traceback
+from config import DB_CONFIG
 
 # Configuração de logging mais detalhada
 logging.basicConfig(
@@ -26,33 +27,48 @@ logger.debug(f"DB_PORT: {os.getenv('DB_PORT')}")
 app = FastAPI(
     title="API de Busca em Demonstrações Contábeis",
     description="""
-    API para busca em demonstrações contábeis de operadoras de planos de saúde.
+    API para busca de informações em demonstrações contábeis de operadoras de saúde.
     
-    ## Endpoints disponíveis:
+    ## Estrutura do Banco de Dados
     
-    * `/` - Rota de teste para verificar a conexão com o banco de dados
-    * `/busca` - Busca nas demonstrações contábeis
-    * `/busca-operadora` - Busca nas operadoras
+    ### Tabelas Principais:
     
-    ## Estrutura das tabelas:
+    1. **operadoras**
+       - Tabela base com dados cadastrais das operadoras
+       - Campos principais: registro_ans, cnpj, razao_social, nome_fantasia, modalidade
     
-    ### Demonstrações Contábeis
-    * id: integer
-    * data_demonstracao: date (YYYY-MM-DD)
-    * registro_ans: varchar(20)
-    * conta: varchar(20)
-    * descricao: text
-    * saldo_inicial: numeric(15,2)
-    * saldo_final: numeric(15,2)
+    2. **operadoras_ativas**
+       - Subconjunto de operadoras atualmente ativas
+       - Campos adicionais: telefone, email, representante
+       - Relacionada com operadoras via registro_ans
     
-    ### Operadoras
-    * id: integer
-    * data_demonstracao: date (YYYY-MM-DD)
-    * registro_ans: varchar(20)
-    * conta: varchar(20)
-    * descricao: text
-    * saldo_inicial: numeric(15,2)
-    * saldo_final: numeric(15,2)
+    3. **demonstracoes_contabeis**
+       - Dados financeiros das operadoras
+       - Campos principais: data_demonstracao, registro_ans, conta, descricao, saldo_inicial, saldo_final
+    
+    4. **rol_procedimentos**
+       - Catálogo de procedimentos médicos
+       - Campos principais: procedimento, od, amb, vigencia, grupo, subgrupo
+    
+    ## Endpoints Disponíveis
+    
+    ### Buscas em Operadoras
+    - `/operadoras/cnpj/{cnpj}` - Busca operadora por CNPJ
+    - `/operadoras/cidade/{cidade}` - Busca operadoras por cidade
+    - `/operadoras/modalidade/{modalidade}` - Busca operadoras por modalidade
+    
+    ### Buscas em Operadoras Ativas
+    - `/operadoras-ativas/cidade/{cidade}` - Busca operadoras ativas por cidade
+    - `/operadoras-ativas/uf/{uf}` - Busca operadoras ativas por UF
+    
+    ### Buscas em Demonstrações
+    - `/demonstracoes/periodo/{data_inicio}/{data_fim}` - Busca demonstrações por período
+    - `/demonstracoes/conta/{conta}` - Busca demonstrações por conta
+    - `/demonstracoes/saldo-negativo` - Busca demonstrações com saldo negativo
+    
+    ### Buscas em Procedimentos
+    - `/procedimentos/grupo/{grupo}` - Busca procedimentos por grupo
+    - `/procedimentos/subgrupo/{subgrupo}` - Busca procedimentos por subgrupo
     """,
     version="1.0.0"
 )
@@ -72,14 +88,7 @@ def get_db_connection():
     """
     try:
         logger.debug("Tentando conectar ao banco de dados...")
-        conn = psycopg2.connect(
-            dbname=os.getenv("DB_NAME", "intuitive_care"),
-            user=os.getenv("DB_USER", "postgres"),
-            password=os.getenv("DB_PASSWORD", "postgres"),
-            host=os.getenv("DB_HOST", "localhost"),
-            port=os.getenv("DB_PORT", "5432"),
-            options='-c client_encoding=LATIN1'
-        )
+        conn = psycopg2.connect(**DB_CONFIG, options='-c client_encoding=LATIN1')
         logger.debug("Conexão com banco de dados estabelecida com sucesso!")
         return conn
     except Exception as e:
@@ -88,213 +97,139 @@ def get_db_connection():
         raise
 
 @app.get("/")
-async def testar_conexao():
-    """
-    Rota de teste para verificar a conexão com o banco de dados.
-    
-    Retorna:
-    * status: status da operação (success/error)
-    * message: mensagem descritiva
-    * teste: resultado do teste de conexão
-    """
-    conn = None
-    cur = None
+async def root():
+    """Rota de teste para verificar se a API está funcionando"""
+    return {"status": "online", "message": "API está funcionando"}
+
+@app.get("/operadoras/cnpj/{cnpj}")
+async def buscar_operadora_cnpj(cnpj: str):
+    """Busca uma operadora pelo CNPJ"""
     try:
-        logger.debug("Iniciando teste de conexão...")
-        
-        # Tenta conectar ao banco
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        # Tenta executar uma query simples
-        cur.execute("SELECT 1 as teste")
+        cur.execute("""
+            SELECT registro_ans, cnpj, razao_social, nome_fantasia, modalidade, 
+                   logradouro, numero, complemento, bairro, cidade, uf, cep
+            FROM operadoras 
+            WHERE cnpj = %s
+        """, (cnpj,))
         resultado = cur.fetchone()
+        cur.close()
+        conn.close()
         
-        logger.debug(f"Resultado do teste: {resultado}")
-        
-        return {
-            "status": "success",
-            "message": "Conexão com o banco de dados estabelecida com sucesso!",
-            "teste": resultado
-        }
-        
+        if not resultado:
+            raise HTTPException(status_code=404, detail="Operadora não encontrada")
+        return resultado
     except Exception as e:
-        logger.error(f"Erro durante o teste de conexão: {str(e)}")
-        logger.error(f"Traceback completo: {traceback.format_exc()}")
-        return {
-            "status": "error",
-            "message": f"Erro ao conectar ao banco de dados: {str(e)}"
-        }
-    finally:
-        if cur:
-            try:
-                cur.close()
-                logger.debug("Cursor fechado com sucesso")
-            except Exception as e:
-                logger.error(f"Erro ao fechar cursor: {str(e)}")
-        
-        if conn:
-            try:
-                conn.close()
-                logger.debug("Conexão fechada com sucesso")
-            except Exception as e:
-                logger.error(f"Erro ao fechar conexão: {str(e)}")
+        logger.error(f"Erro ao buscar operadora: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/busca")
-async def buscar_descricao(
-    termo: str = Query(..., description="Termo para busca na coluna descricao da tabela demonstracoes_contabeis"),
-    limite: int = Query(100, description="Número máximo de resultados a retornar (entre 1 e 1000)", ge=1, le=1000)
-):
-    """
-    Busca registros na tabela demonstracoes_contabeis pelo termo na coluna descricao.
-    
-    Retorna uma lista de registros com:
-    * id: identificador único
-    * data_referencia: data da demonstração (YYYY-MM-DD)
-    * registro_ans: registro ANS da operadora
-    * conta: código da conta contábil
-    * descricao: descrição da conta
-    * saldo_inicial: saldo inicial do período
-    * saldo_final: saldo final do período
-    """
-    conn = None
-    cur = None
+@app.get("/operadoras/cidade/{cidade}")
+async def buscar_operadoras_cidade(cidade: str):
+    """Busca operadoras por cidade"""
     try:
-        logger.debug(f"Iniciando busca para termo: {termo}")
-        logger.debug(f"Limite de resultados: {limite}")
-        
-        # Conecta ao banco de dados usando a função auxiliar
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        query = """
-        SELECT 
-            id::text as id,
-            data_demonstracao::text as data_referencia,
-            registro_ans::text as registro_ans,
-            conta::text as conta,
-            descricao::text as descricao,
-            saldo_inicial::text as saldo_inicial,
-            saldo_final::text as saldo_final
-        FROM demonstracoes_contabeis
-        WHERE descricao ILIKE %s
-        ORDER BY data_demonstracao DESC
-        LIMIT %s;
-        """
-        
-        termo_busca = f"%{termo}%"
-        logger.debug(f"Query a ser executada: {query}")
-        logger.debug(f"Parâmetros: termo_busca={termo_busca}, limite={limite}")
-        
-        # Executa a query
-        cur.execute(query, (termo_busca, limite))
+        cur.execute("""
+            SELECT registro_ans, cnpj, razao_social, nome_fantasia, modalidade, 
+                   logradouro, numero, complemento, bairro, cidade, uf, cep
+            FROM operadoras 
+            WHERE cidade ILIKE %s
+            LIMIT 100
+        """, (f"%{cidade}%",))
         resultados = cur.fetchall()
-        
-        # Log dos resultados
-        logger.debug(f"Total de resultados encontrados: {len(resultados)}")
-        if len(resultados) > 0:
-            logger.debug(f"Primeiro resultado: {resultados[0]}")
-        
-        # Converte os resultados para uma lista de dicionários
-        return [dict(row) for row in resultados]
-        
+        cur.close()
+        conn.close()
+        return resultados
     except Exception as e:
-        logger.error(f"Erro durante a execução da busca: {str(e)}")
-        logger.error(f"Traceback completo: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Erro ao buscar dados: {str(e)}")
-    finally:
-        # Garante que as conexões sejam fechadas mesmo em caso de erro
-        if cur:
-            try:
-                cur.close()
-                logger.debug("Cursor fechado com sucesso")
-            except Exception as e:
-                logger.error(f"Erro ao fechar cursor: {str(e)}")
-        
-        if conn:
-            try:
-                conn.close()
-                logger.debug("Conexão fechada com sucesso")
-            except Exception as e:
-                logger.error(f"Erro ao fechar conexão: {str(e)}")
+        logger.error(f"Erro ao buscar operadoras: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/busca-operadora")
-async def buscar_operadora(
-    termo: str = Query(..., description="Termo para busca na coluna descricao da tabela operadoras"),
-    limite: int = Query(100, description="Número máximo de resultados a retornar (entre 1 e 1000)", ge=1, le=1000)
-):
-    """
-    Busca registros na tabela operadoras pelo termo na coluna descricao.
-    
-    Retorna uma lista de registros com:
-    * id: identificador único
-    * data_referencia: data da demonstração (YYYY-MM-DD)
-    * registro_ans: registro ANS da operadora
-    * conta: código da conta contábil
-    * descricao: descrição da conta
-    * saldo_inicial: saldo inicial do período (formatado com 2 casas decimais)
-    * saldo_final: saldo final do período (formatado com 2 casas decimais)
-    """
-    conn = None
-    cur = None
+@app.get("/operadoras-ativas/cidade/{cidade}")
+async def buscar_operadoras_ativas_cidade(cidade: str):
+    """Busca operadoras ativas por cidade"""
     try:
-        logger.debug(f"Iniciando busca na operadora para termo: {termo}")
-        logger.debug(f"Limite de resultados: {limite}")
-        
-        # Conecta ao banco de dados usando a função auxiliar
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        query = """
-        SELECT 
-            id,
-            to_char(data_demonstracao, 'YYYY-MM-DD') as data_referencia,
-            registro_ans::varchar(20) as registro_ans,
-            conta::varchar(20) as conta,
-            descricao::text as descricao,
-            to_char(saldo_inicial, '999999999999.99') as saldo_inicial,
-            to_char(saldo_final, '999999999999.99') as saldo_final
-        FROM operadoras
-        WHERE descricao ILIKE %s
-        ORDER BY data_demonstracao DESC
-        LIMIT %s;
-        """
-        
-        termo_busca = f"%{termo}%"
-        logger.debug(f"Query a ser executada: {query}")
-        logger.debug(f"Parâmetros: termo_busca={termo_busca}, limite={limite}")
-        
-        # Executa a query
-        cur.execute(query, (termo_busca, limite))
+        cur.execute("""
+            SELECT registro_ans, cnpj, razao_social, nome_fantasia, modalidade, 
+                   logradouro, numero, complemento, bairro, cidade, uf, cep,
+                   telefone, email, representante
+            FROM operadoras_ativas 
+            WHERE cidade ILIKE %s
+            LIMIT 100
+        """, (f"%{cidade}%",))
         resultados = cur.fetchall()
-        
-        # Log dos resultados
-        logger.debug(f"Total de resultados encontrados: {len(resultados)}")
-        if len(resultados) > 0:
-            logger.debug(f"Primeiro resultado: {resultados[0]}")
-        
-        # Converte os resultados para uma lista de dicionários
-        return [dict(row) for row in resultados]
-        
+        cur.close()
+        conn.close()
+        return resultados
     except Exception as e:
-        logger.error(f"Erro durante a execução da busca: {str(e)}")
-        logger.error(f"Traceback completo: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Erro ao buscar dados: {str(e)}")
-    finally:
-        # Garante que as conexões sejam fechadas mesmo em caso de erro
-        if cur:
-            try:
-                cur.close()
-                logger.debug("Cursor fechado com sucesso")
-            except Exception as e:
-                logger.error(f"Erro ao fechar cursor: {str(e)}")
-        
-        if conn:
-            try:
-                conn.close()
-                logger.debug("Conexão fechada com sucesso")
-            except Exception as e:
-                logger.error(f"Erro ao fechar conexão: {str(e)}")
+        logger.error(f"Erro ao buscar operadoras ativas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/demonstracoes/periodo/{data_inicio}/{data_fim}")
+async def buscar_demonstracoes_periodo(data_inicio: str, data_fim: str):
+    """Busca demonstrações por período"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT data_demonstracao, registro_ans, conta, descricao, 
+                   saldo_inicial, saldo_final
+            FROM demonstracoes_contabeis 
+            WHERE data_demonstracao BETWEEN %s AND %s
+            ORDER BY data_demonstracao
+            LIMIT 100
+        """, (data_inicio, data_fim))
+        resultados = cur.fetchall()
+        cur.close()
+        conn.close()
+        return resultados
+    except Exception as e:
+        logger.error(f"Erro ao buscar demonstrações: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/demonstracoes/saldo-negativo")
+async def buscar_demonstracoes_saldo_negativo():
+    """Busca demonstrações com saldo negativo"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT data_demonstracao, registro_ans, conta, descricao, 
+                   saldo_inicial, saldo_final
+            FROM demonstracoes_contabeis 
+            WHERE saldo_final < 0
+            ORDER BY data_demonstracao DESC
+            LIMIT 100
+        """)
+        resultados = cur.fetchall()
+        cur.close()
+        conn.close()
+        return resultados
+    except Exception as e:
+        logger.error(f"Erro ao buscar demonstrações: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/procedimentos/grupo/{grupo}")
+async def buscar_procedimentos_grupo(grupo: str):
+    """Busca procedimentos por grupo"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT procedimento, od, amb, vigencia, subgrupo, grupo, capitulo
+            FROM rol_procedimentos 
+            WHERE grupo ILIKE %s
+            LIMIT 100
+        """, (f"%{grupo}%",))
+        resultados = cur.fetchall()
+        cur.close()
+        conn.close()
+        return resultados
+    except Exception as e:
+        logger.error(f"Erro ao buscar procedimentos: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
