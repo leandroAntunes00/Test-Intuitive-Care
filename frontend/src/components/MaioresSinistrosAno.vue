@@ -41,15 +41,7 @@
 </template>
 
 <script>
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: 'http://localhost:8000',
-  timeout: 30000,
-  headers: {
-    'accept': 'application/json'
-  }
-});
+import api from '../config/api';
 
 export default {
   name: 'MaioresSinistrosAno',

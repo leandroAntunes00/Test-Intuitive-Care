@@ -177,13 +177,7 @@
 </template>
 
 <script>
-import axios from 'axios';
-
-// Configuração base do Axios
-const api = axios.create({
-  baseURL: 'http://localhost:8000',
-  timeout: 5000
-});
+import api from '../config/api';
 
 export default {
   name: 'BuscaOperadoras',
