@@ -48,7 +48,7 @@ LOGGING = {
 }
 
 # Configurações do banco de dados
-DB_NAME = "intuitive_care2"
+DB_NAME = "intuitive_care"
 DB_USER = "postgres"
 DB_PASSWORD = "postgres"
 DB_HOST = "localhost"
@@ -66,7 +66,7 @@ URLS = {
     }
 }
 
-# URL de conexão
+# URL de conexão com o banco de dados
 DB_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}"
 
 # Configurações da API

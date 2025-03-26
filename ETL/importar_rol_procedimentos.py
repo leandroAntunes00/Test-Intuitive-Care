@@ -7,7 +7,7 @@ import os
 DB_CONFIG = {
     'host': 'localhost',
     'port': '5432',
-    'database': 'rol_procedimentos',
+    'database': 'intuitive_care',
     'user': 'postgres',
     'password': 'postgres'
 }
@@ -22,7 +22,7 @@ def importar_dados():
     try:
         # Ler o arquivo CSV
         print("Lendo arquivo CSV...")
-        df = pd.read_csv('tabela_rol_procedimentos.csv', sep=';', encoding='utf-8-sig')
+        df = pd.read_csv('tabela_rol_procedimentos.csv', sep=';', encoding='latin1')
         
         # Criar conexão com o banco de dados
         print("Conectando ao banco de dados...")
@@ -30,7 +30,7 @@ def importar_dados():
         
         # Importar dados para o banco
         print("Importando dados para o banco...")
-        df.to_sql('procedimentos', 
+        df.to_sql('rol_procedimentos', 
                  engine, 
                  schema='public',
                  if_exists='append',

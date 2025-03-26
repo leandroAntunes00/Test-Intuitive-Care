@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 # Configurações
 TEST_MODE = False  # Modo de teste processa apenas 50000 linhas por arquivo
-LINHAS_TESTE = 50000  # Número de linhas a processar no modo de teste
+LINHAS_TESTE = 10000  # Número de linhas a processar no modo de teste
 
 # Criar diretório de logs se não existir
 os.makedirs('logs', exist_ok=True)
@@ -403,20 +403,22 @@ def processar_todos_arquivos(conn):
         return False
 
 def main():
-    logging.info("Iniciando script em modo de teste" if TEST_MODE else "Iniciando script")
-    
+    """Função principal"""
     try:
+        # Criar conexão com o banco de dados
         conn = psycopg2.connect(
             dbname=DB_NAME,
             user=DB_USER,
             password=DB_PASSWORD,
             host=DB_HOST,
-            port=DB_PORT,
-            options="-c client_encoding=UTF8"
+            port=DB_PORT
         )
         
-        # Limpar e criar tabelas
-        logging.info("Removendo tabelas antigas...")
+        # Cria as tabelas se não existirem
+        criar_tabelas(conn)
+
+        # Limpa as tabelas existentes
+        logging.info("Limpando tabelas existentes...")
         limpar_tabelas(conn)
         logging.info("Criando novas tabelas e índices...")
         criar_tabelas(conn)
@@ -427,7 +429,7 @@ def main():
             raise FileNotFoundError(f"Arquivo de operadoras não encontrado: {arquivo_operadoras}")
         
         logging.info("Processando arquivo de operadoras...")
-        df_operadoras = pd.read_csv(arquivo_operadoras, sep=';', encoding='utf-8')
+        df_operadoras = pd.read_csv(arquivo_operadoras, sep=';', encoding=ARQUIVOS['csv']['encoding'])
         inserir_operadoras(conn, df_operadoras)
         
         # Processar arquivos de demonstrações por ano e trimestre
