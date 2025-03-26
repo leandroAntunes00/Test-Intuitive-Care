@@ -1,7 +1,7 @@
 # API de Busca de Operadoras de Saúde
 
 ![Image](https://github-production-user-asset-6210df.s3.amazonaws.com/131140028/427151891-1718fd21-65f7-4e3f-8dc0-0b5882ecb095.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20250326%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250326T173914Z&X-Amz-Expires=300&X-Amz-Signature=9c02f1f7cf6436a940c13953d40628eecd00daee4c414f4630278a4a6ebcf8ea&X-Amz-SignedHeaders=host)
-![Image](https://github-production-user-asset-6210df.s3.amazonaws.com/131140028/427152128-b6a0be1c-88df-4c6b-af4a-92afdbf7baf7.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20250326%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250326T174228Z&X-Amz-Expires=300&X-Amz-Signature=bc97ea4ad922dbf88a72d97d9db2e2e568d306d26efae64c69cd37a9f9e975cf&X-Amz-SignedHeaders=host)
+![Image2](https://github-production-user-asset-6210df.s3.amazonaws.com/131140028/427152128-b6a0be1c-88df-4c6b-af4a-92afdbf7baf7.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20250326%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250326T174228Z&X-Amz-Expires=300&X-Amz-Signature=bc97ea4ad922dbf88a72d97d9db2e2e568d306d26efae64c69cd37a9f9e975cf&X-Amz-SignedHeaders=host)
 
 ## Sobre o Projeto
 
