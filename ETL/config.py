@@ -20,6 +20,12 @@ DIRETORIOS = {
     }
 }
 
+# Definindo constantes de diretório
+DOWNLOAD_DIR = DIRETORIOS['dados']['downloads']
+OPERADORAS_ATIVAS_DIR = DIRETORIOS['dados']['operadoras_ativas']
+DEMO_CONTABEIS_2023_DIR = DIRETORIOS['dados'][f'demo_{ANO_ANTERIOR_2}']
+DEMO_CONTABEIS_2024_DIR = DIRETORIOS['dados'][f'demo_{ANO_ANTERIOR}']
+
 # Configurações de arquivos
 ARQUIVOS = {
     'csv': {
@@ -27,6 +33,10 @@ ARQUIVOS = {
         'separador': ';',      # Separador padrão dos CSVs
         'operadoras': 'Relatorio_cadop.csv',
         'demonstracoes': 'demonstracoes.csv'
+    },
+    'zip': {
+        'prefixo': 'anexos_',
+        'extensao': '.zip'
     }
 }
 
@@ -38,7 +48,7 @@ LOGGING = {
 }
 
 # Configurações do banco de dados
-DB_NAME = "intuitive_care"
+DB_NAME = "intuitive_care2"
 DB_USER = "postgres"
 DB_PASSWORD = "postgres"
 DB_HOST = "localhost"
@@ -46,6 +56,9 @@ DB_PORT = "5432"
 
 # URLs para download dos arquivos
 URLS = {
+    'ANS': {
+        'base': 'https://www.gov.br/ans/pt-br/acesso-a-informacao/participacao-da-sociedade/atualizacao-do-rol-de-procedimentos'
+    },
     'operadoras': 'https://dadosabertos.ans.gov.br/FTP/PDA/operadoras_de_plano_de_saude_ativas/Relatorio_cadop.csv',
     'demonstracoes': {
         str(ANO_ANTERIOR_2): f'https://dadosabertos.ans.gov.br/FTP/PDA/demonstracoes_contabeis/{ANO_ANTERIOR_2}/',
