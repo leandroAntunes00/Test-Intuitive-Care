@@ -3,4 +3,5 @@ uvicorn
 sqlalchemy
 pandas
 python-dotenv
-psycopg2 
+psycopg2
+gunicorn 
