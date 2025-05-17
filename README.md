@@ -1,6 +1,6 @@
 # API de Busca de Operadoras de Saúde
 
-![Image](https://github-production-user-asset-6210df.s3.amazonaws.com/131140028/427665188-161a4de7-1c22-4f7a-a6bd-18dad25204af.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20250327%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250327T163503Z&X-Amz-Expires=300&X-Amz-Signature=e7ea645e16059e43b67fba24ff77ef7714b4b207907e4980e694334c94323dfb&X-Amz-SignedHeaders=host)
+![Image](https://blobsreceitasverdes.blob.core.windows.net/others/demo-4t.png)
 
 ![Image](https://github-production-user-asset-6210df.s3.amazonaws.com/131140028/427382684-901668a3-d26a-49b9-be32-b3b6a4d6b0a2.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20250327%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250327T065905Z&X-Amz-Expires=300&X-Amz-Signature=9cb8e3a84a44b9a3c59234f06887ffde93f3207501277eedee8304fe2d12db88&X-Amz-SignedHeaders=host)
 
